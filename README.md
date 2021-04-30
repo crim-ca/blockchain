@@ -1,71 +1,65 @@
-# Are you looking for the source code for my book?
+# EvalBlockchain
 
-Please find it here: https://github.com/dvf/blockchain-book
+Repository to explore extensions and applicability of blockchain of private data. 
 
-The book is available on Amazon: https://www.amazon.com/Learn-Blockchain-Building-Understanding-Cryptocurrencies/dp/1484251709
+Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/PATR/MODL+-+EvalBlockchain)
+> Évaluer l’utilisation du blockchain pour garantir l’intégrité et la traçabilité des données privées
 
-# Learn Blockchains by Building One
-
-[![Build Status](https://travis-ci.org/dvf/blockchain.svg?branch=master)](https://travis-ci.org/dvf/blockchain)
-
-This is the source code for my post on [Building a Blockchain](https://medium.com/p/117428612f46). 
 
 ## Installation
 
 1. Make sure [Python 3.6+](https://www.python.org/downloads/) is installed. 
-2. Install [pipenv](https://github.com/kennethreitz/pipenv). 
+2. Install the dependencies in your preferred virtual environment manager (`pipenv`, `conda`, etc.) 
 
+``` shell
+pip install -e <blockchain-repo-root> 
 ```
-$ pip install pipenv 
-```
-3. Install requirements  
-```
-$ pipenv install 
-``` 
 
-4. Run the server:
-    * `$ pipenv run python blockchain.py` 
-    * `$ pipenv run python blockchain.py -p 5001`
-    * `$ pipenv run python blockchain.py --port 5002`
+3. Run the server:
+``` shell
+python blockchain/app.py  # defaults to port 5000, and file storage in "./db" location 
+python blockchain/app.py -p 5001
+python blockchain/app.py --port 5002 --file://<custom-directory>
+ ```
+
+List arguments: 
+``` shell
+python blockchain/app.py --help
+```
     
 ## Docker
 
-Another option for running this blockchain program is to use Docker.  Follow the instructions below to create a local Docker container:
+Another option for running this blockchain program is to use Docker.  
+Follow the instructions below to create a local Docker container:
 
 1. Clone this repository
 2. Build the docker container
 
-```
-$ docker build -t blockchain .
+``` shell
+docker build -t blockchain .
 ```
 
 3. Run the container
 
-```
-$ docker run --rm -p 80:5000 blockchain
+``` shell
+docker run --rm -p 80:5000 blockchain
 ```
 
 4. To add more instances, vary the public port number before the colon:
 
+``` shell
+docker run --rm -p 81:5000 blockchain
+docker run --rm -p 82:5000 blockchain
+docker run --rm -p 83:5000 blockchain
 ```
-$ docker run --rm -p 81:5000 blockchain
-$ docker run --rm -p 82:5000 blockchain
-$ docker run --rm -p 83:5000 blockchain
-```
-
-## Installation (C# Implementation)
-
-1. Install a free copy of Visual Studio IDE (Community Edition):
-https://www.visualstudio.com/vs/
-
-2. Once installed, open the solution file (BlockChain.sln) using the File > Open > Project/Solution menu options within Visual Studio.
-
-3. From within the "Solution Explorer", right click the BlockChain.Console project and select the "Set As Startup Project" option.
-
-4. Click the "Start" button, or hit F5 to run. The program executes in a console window, and is controlled via HTTP with the same commands as the Python version.
-
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## Resources
+
+Following are the reference resources and source code employed to start development of this project.
+
+- [Original code: dvf/blockchain](https://github.com/dvf/blockchain )
+- [Building a Blockchain blogpost](https://medium.com/p/117428612f46)
