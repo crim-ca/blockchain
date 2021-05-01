@@ -8,7 +8,7 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 
 [![version badge](https://img.shields.io/badge/latest%20version-1.0.0-blue)][version-url]
 
-[version-url]: https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.0.1
+[version-url]: https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.1.0
 
 ## Installation
 
