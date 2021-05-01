@@ -5,7 +5,12 @@ Changes
 *******
 
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
-------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------
+
+* Nothing yet.
+
+`0.0.1 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.0.1>`_ (2021-05-01)
+---------------------------------------------------------------------------------------------------------------
 
 * First structured release.
 
