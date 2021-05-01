@@ -70,7 +70,7 @@ for req in ["", "dev", "docs", "test"]:
 setup(
     # -- meta information --------------------------------------------------
     name=PACKAGE_NAME,
-    version="0.0.0",
+    version="0.0.1",
     description=DESCRIPTION,
     long_description=README + "\n\n" + CHANGES,
     author="CRIM",
