@@ -47,7 +47,7 @@ LICENSE = ""
 LICENSE_NAME = ""
 if os.path.exists("LICENSE"):
     with open("LICENSE") as license_file:
-        LICENSE = readme_file.read()
+        LICENSE = license_file.read()
         LICENSE_NAME = [line.strip() for line in LICENSE.splitlines() if line.strip()][0]
 
 CHANGES = ""
@@ -64,13 +64,13 @@ for req in ["", "dev", "docs", "test"]:
     if os.path.isfile(req_name):
         with open(req_name) as req_file:
             requires = {req.strip() for req in req_file.readlines()}
-            REQUIREMENTS[req] = set(r for r in requires if r and not r.startswith("#"))
+            REQUIREMENTS[req] = list(set(r for r in requires if r and not r.startswith("#")))
     LOGGER.info("%s%srequirements: %s", req, " " if req else "", REQUIREMENTS[req])
 
 setup(
     # -- meta information --------------------------------------------------
     name=PACKAGE_NAME,
-    version="0.1.0",
+    version="0.0.0",
     description=DESCRIPTION,
     long_description=README + "\n\n" + CHANGES,
     author="CRIM",
@@ -78,7 +78,7 @@ setup(
     maintainer_email="francis.charette-migneault@crim.ca",
     contact="CRIM Info",
     contact_email="info@crim.ca",
-    url="https://www.crim.ca/stash/projects/PATR/repos/EvalBlockChain",
+    url="https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain",
     platforms=["linux_x86_64"],
     license=LICENSE_NAME,
     keywords="Blockchain, Security, Data Integrity, Consensus",

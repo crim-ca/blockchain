@@ -1,2 +1,3 @@
+addict
 flask
 requests
