@@ -6,6 +6,10 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 > Évaluer l’utilisation du blockchain pour garantir l’intégrité et la traçabilité des données privées
 
 
+[![version badge](https://img.shields.io/badge/latest%20version-1.0.0-blue)][version-url]
+
+[version-url]: https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.0.0
+
 ## Installation
 
 1. Make sure [Python 3.6+](https://www.python.org/downloads/) is installed. 
@@ -61,5 +65,5 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 Following are the reference resources and source code employed to start development of this project.
 
-- [Original code: dvf/blockchain](https://github.com/dvf/blockchain )
+- [Original code: dvf/blockchain](https://github.com/dvf/blockchain)
 - [Building a Blockchain blogpost](https://medium.com/p/117428612f46)
