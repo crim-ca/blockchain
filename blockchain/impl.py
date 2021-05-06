@@ -12,7 +12,7 @@ from addict import Dict as AttributeDict  # auto generates attribute, properties
 from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Optional
+    from typing import Any, Dict, List, Optional
     from blockchain import JSON
 
 LOGGER = get_logger(__name__)
@@ -24,6 +24,7 @@ class Base(AttributeDict, abc.ABC):
     Explicitly overridden ``getter``/``setter`` attributes are called instead of ``dict``-key ``get``/``set``-item
     to ensure corresponding checks and/or value adjustments are executed before applying it to the sub-``dict``.
     """
+
     __json__ = True  # repr as JSON
 
     def __init__(self, *args, **kwargs):
@@ -39,8 +40,7 @@ class Base(AttributeDict, abc.ABC):
         if self.__json__:
             cls = type(self)
             try:
-                repr_ = json.dumps(self.json(force=False),
-                                   indent=2, ensure_ascii=False)
+                repr_ = json.dumps(self.json(force=False), indent=2, ensure_ascii=False)
             except Exception:  # noqa
                 return dict.__repr__(self)
             return "{0}.{1}\n{2}".format(cls.__module__, cls.__name__, repr_)
@@ -85,6 +85,7 @@ class Block(Base):
     """
     Block used to form the chain.
     """
+
     def __init__(self, *args, **kwargs):
         self.update({"index": None, "transactions": [], "proof": None, "previous_has": None})
         super(Block, self).__init__(*args, **kwargs)
@@ -114,7 +115,7 @@ class Blockchain(Base):
 
         # Create the genesis block
         if not self.blocks:
-            self.new_block(previous_hash='1', proof=100)
+            self.new_block(previous_hash="1", proof=100)
 
     def json(self, *_, **__):
         # type: (Any, Any) -> JSON
@@ -126,6 +127,7 @@ class Blockchain(Base):
 
     @property
     def blocks(self):
+        # type: () -> List[Block]
         return self["blocks"]
 
     @blocks.setter
@@ -138,17 +140,17 @@ class Blockchain(Base):
         """
         Add a new node to the list of nodes
 
-        :param address: Address of node. Eg. 'http://192.168.0.5:5000'
+        :param address: Address of node. Eg. "http://192.168.0.5:5000"
         """
 
         parsed_url = urlparse(address)
         if parsed_url.netloc:
             self.nodes.add(parsed_url.netloc)
         elif parsed_url.path:
-            # Accepts an URL without scheme like '192.168.0.5:5000'.
+            # Accepts an URL without scheme like "192.168.0.5:5000".
             self.nodes.add(parsed_url.path)
         else:
-            raise ValueError('Invalid URL')
+            raise ValueError("Invalid URL")
 
     def valid_chain(self, chain):
         """
@@ -168,11 +170,11 @@ class Blockchain(Base):
             LOGGER.debug("-----------")
             # Check that the hash of the block is correct
             last_block_hash = self.hash(last_block)
-            if block['previous_hash'] != last_block_hash:
+            if block["previous_hash"] != last_block_hash:
                 return False
 
             # Check that the Proof of Work is correct
-            if not self.valid_proof(last_block['proof'], block['proof'], last_block_hash):
+            if not self.valid_proof(last_block["proof"], block["proof"], last_block_hash):
                 return False
 
             last_block = block
@@ -196,11 +198,11 @@ class Blockchain(Base):
 
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
-            response = requests.get(f'http://{node}/chain')
+            response = requests.get(f"http://{node}/chain")
 
             if response.status_code == 200:
-                length = response.json()['length']
-                chain = response.json()['chain']
+                length = response.json()["length"]
+                chain = response.json()["chain"]
 
                 # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
@@ -225,10 +227,10 @@ class Blockchain(Base):
         """
 
         block = Block({
-            'index': len(self.blocks) + 1,
-            'transactions': self.current_transactions,
-            'proof': proof,
-            'previous_hash': previous_hash or self.hash(self.blocks[-1]),
+            "index": len(self.blocks) + 1,
+            "transactions": self.current_transactions,
+            "proof": proof,
+            "previous_hash": previous_hash or self.hash(self.blocks[-1]),
         })
 
         # Reset the current list of transactions
@@ -248,12 +250,12 @@ class Blockchain(Base):
         :return: The index of the Block that will hold this transaction
         """
         self.current_transactions.append(Transaction({
-            'sender': sender,
-            'recipient': recipient,
-            'amount': amount,
+            "sender": sender,
+            "recipient": recipient,
+            "amount": amount,
         }))
 
-        return self.last_block['index'] + 1
+        return self.last_block["index"] + 1
 
     @property
     def last_block(self):
@@ -283,7 +285,7 @@ class Blockchain(Base):
         :return: computed proof
         """
 
-        last_proof = last_block['proof']
+        last_proof = last_block["proof"]
         last_hash = self.hash(last_block)
 
         proof = 0
@@ -304,6 +306,6 @@ class Blockchain(Base):
         :return: True if correct, False if not.
         """
 
-        guess = f'{last_proof}{proof}{last_hash}'.encode()
+        guess = f"{last_proof}{proof}{last_hash}".encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
