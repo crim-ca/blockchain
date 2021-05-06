@@ -24,7 +24,7 @@ class BlockchainWebApp(Flask):
 app = BlockchainWebApp(__name__)
 
 
-@app.route('/mine', methods=['GET'])
+@app.route("/mine", methods=["GET"])
 def mine():
     # We run the proof of work algorithm to get the next proof...
     last_block = app.blockchain.last_block
@@ -43,45 +43,45 @@ def mine():
     block = app.blockchain.new_block(proof, previous_hash)
 
     response = {
-        'message': "New Block Forged",
-        'index': block['index'],
-        'transactions': block['transactions'],
-        'proof': block['proof'],
-        'previous_hash': block['previous_hash'],
+        "message": "New Block Forged",
+        "index": block["index"],
+        "transactions": block["transactions"],
+        "proof": block["proof"],
+        "previous_hash": block["previous_hash"],
     }
     return jsonify(response), 200
 
 
-@app.route('/transactions/new', methods=['POST'])
+@app.route("/transactions/new", methods=["POST"])
 def new_transaction():
     values = request.get_json()
 
     # Check that the required fields are in the POST'ed data
-    required = {'sender': str, 'recipient': str, 'amount': int}
+    required = {"sender": str, "recipient": str, "amount": int}
     if not all(k in values and isinstance(values[k], required[k]) for k in required):
-        return 'Missing values amongst: {}'.format(required), 400
+        return "Missing values amongst: {}".format(required), 400
 
     # Create a new Transaction
-    index = app.blockchain.new_transaction(values['sender'], values['recipient'], values['amount'])
+    index = app.blockchain.new_transaction(values["sender"], values["recipient"], values["amount"])
 
-    response = {'message': f'Transaction will be added to Block {index}'}
+    response = {"message": f"Transaction will be added to Block {index}"}
     return jsonify(response), 201
 
 
-@app.route('/chain', methods=['GET'])
+@app.route("/chain", methods=["GET"])
 def full_chain():
     response = {
-        'chain': app.blockchain.chain,
-        'length': len(app.blockchain.chain),
+        "chain": app.blockchain.chain,
+        "length": len(app.blockchain.chain),
     }
     return jsonify(response), 200
 
 
-@app.route('/nodes/register', methods=['POST'])
+@app.route("/nodes/register", methods=["POST"])
 def register_nodes():
     values = request.get_json()
 
-    nodes = values.get('nodes')
+    nodes = values.get("nodes")
     if nodes is None:
         return "Error: Please supply a valid list of nodes", 400
 
@@ -89,36 +89,35 @@ def register_nodes():
         app.blockchain.register_node(node)
 
     response = {
-        'message': 'New nodes have been added',
-        'total_nodes': list(app.blockchain.nodes),
+        "message": "New nodes have been added",
+        "total_nodes": list(app.blockchain.nodes),
     }
     return jsonify(response), 201
 
 
-@app.route('/nodes/resolve', methods=['GET'])
+@app.route("/nodes/resolve", methods=["GET"])
 def consensus():
     replaced = app.blockchain.resolve_conflicts()
 
     if replaced:
-        response = {
-            'message': 'Our chain was replaced',
-            'new_chain': app.blockchain.chain
-        }
+        response = {"message": "Our chain was replaced", "new_chain": app.blockchain.chain}
     else:
-        response = {
-            'message': 'Our chain is authoritative',
-            'chain': app.blockchain.chain
-        }
+        response = {"message": "Our chain is authoritative", "chain": app.blockchain.chain}
 
     return jsonify(response), 200
 
 
 def main():
     parser = ArgumentParser(prog="blockchain", description="Blockchain Node Web Application")
-    parser.add_argument('-p', '--port', default=5000, type=int, help='port to listen on')
+    parser.add_argument("-p", "--port", default=5000, type=int, help="port to listen on")
     parser.add_argument("-n", "--node", help="Unique identifier of the node. Generate one if omitted.")
-    parser.add_argument('--db', "--database", default="file", choices=list(DB_TYPES),
-                        help='Database to use. Formatted as [type://connection-detail].')
+    parser.add_argument(
+        "--db",
+        "--database",
+        default="file",
+        choices=list(DB_TYPES),
+        help="Database to use. Formatted as [type://connection-detail].",
+    )
     log_args = parser.add_argument_group(title="Logger", description="Logging control.")
     level_args = log_args.add_mutually_exclusive_group()
     level_args.add_argument("-d", "--debug", action="store_true", help="Debug level logging.")
@@ -139,14 +138,14 @@ def main():
         app.db = db_impl(args.db)
 
         # Generate a globally unique address for this node
-        node_id = args.node if args.node else str(uuid.uuid4()).replace('-', '')
+        node_id = args.node if args.node else str(uuid.uuid4()).replace("-", "")
         app.config["node"] = node_id
         app.blockchain = Blockchain(app.db.load_chain())
-        app.run(host='0.0.0.0', port=port)
+        app.run(host="0.0.0.0", port=port)
     except Exception as exc:
         logger.error("Unhandled error: %s", exc, exc_info=exc)
         sys.exit(-1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
