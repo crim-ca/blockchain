@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.2.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.2.0>`_ (2021-05-07)
+---------------------------------------------------------------------------------------------------------------
+
 Features / Changes
 ~~~~~~~~~~~~~~~~~~~~~
 * Update linting of strings to uniformize the code.
