@@ -1,9 +1,9 @@
 # EvalBlockchain
 
-Repository to explore extensions and applicability of blockchain of private data. 
+Explore extensions and applicability of Blockchain to guarantee integrity and traceability of private data. 
 
 Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/PATR/MODL+-+EvalBlockchain)
-> Évaluer l’utilisation du blockchain pour garantir l’intégrité et la traçabilité des données privées
+> Évaluer l’utilisation du blockchain pour garantir l’intégrité et la traçabilité des données privées.
 
 
 [![version badge](https://img.shields.io/badge/latest%20version-1.0.0-blue)][version-url]

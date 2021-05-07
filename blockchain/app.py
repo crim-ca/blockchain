@@ -1,14 +1,17 @@
+import argparse
 import uuid
 import logging
 import sys
-from argparse import ArgumentParser
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse, urljoin
 
+from flasgger import Swagger
 from flask import Flask, jsonify, request
 
+from blockchain import __meta__, __title__
 from blockchain.database import DB_TYPES
 from blockchain.impl import Blockchain
-from blockchain.utils import get_logger
+from blockchain.utils import asbool, get_logger
 
 if TYPE_CHECKING:
     from blockchain.database import Database
@@ -22,6 +25,37 @@ class BlockchainWebApp(Flask):
 
 # Instantiate the Node
 app = BlockchainWebApp(__name__)
+Swagger(
+    app,
+    merge=True, config={"openapi": "3.0.2", "specs_route": "/api"},
+    template={
+        "info": {
+            "title": __title__,
+            "description": __meta__["Summary"],
+            "contact": {
+                "responsibleOrganization": __meta__["Author"],
+                "responsibleDeveloper": __meta__["Maintainer"],
+                "email": __meta__["Maintainer-email"],
+                "url": __meta__["Home-page"],  # url=... in setup
+            },
+            # "termsOfService": "http://me.com/terms",
+            "license": __meta__["License"],
+            "version": __meta__["Version"]
+        }
+    }
+)
+
+
+@app.route("/")
+def frontpage():
+    body = {
+        "description": "Blockchain Node",
+        "node": app.node,
+        "links": [
+            {"rel": "api", "href": urljoin(request.url, "/api")}
+        ]
+    }
+    return jsonify(body), 200
 
 
 @app.route("/mine", methods=["GET"])
@@ -34,7 +68,7 @@ def mine():
     # The sender is "0" to signify that this node has mined a new coin.
     app.blockchain.new_transaction(
         sender="0",
-        recipient=app.config["node"],
+        recipient=app.node,
         amount=1,
     )
 
@@ -70,11 +104,17 @@ def new_transaction():
 
 @app.route("/chain", methods=["GET"])
 def full_chain():
+    detail = asbool(request.args.get("detail"))
     response = {
-        "chain": app.blockchain.chain,
-        "length": len(app.blockchain.chain),
+        "chain": app.blockchain.json(detail=detail),
+        "length": len(app.blockchain.blocks),
     }
     return jsonify(response), 200
+
+
+@app.route("/nodes", methods=["GET"])
+def list_nodes():
+    return jsonify({"nodes": list(app.blockchain.nodes)}), 200
 
 
 @app.route("/nodes/register", methods=["POST"])
@@ -103,44 +143,58 @@ def consensus():
         response = {"message": "Our chain was replaced", "new_chain": app.blockchain.chain}
     else:
         response = {"message": "Our chain is authoritative", "chain": app.blockchain.chain}
-
+    app.db.save_chain(app.blockchain)
     return jsonify(response), 200
 
 
+class DatabaseTypeAction(argparse.Action):
+    choices = list(DB_TYPES)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not isinstance(values, str):
+            raise TypeError("Invalid database URI string")
+        uri = urlparse(values)
+        if uri.netloc:
+            db_type = uri.scheme
+            db_conn = uri.netloc
+        else:
+            if not uri.path.startswith("/"):
+                raise ValueError("Database URI without scheme must be an absolute path: [{}]".format(uri))
+            db_type = "file"
+            db_conn = uri.path
+        db_impl = DB_TYPES.get(db_type)
+        if not db_impl:
+            raise ValueError("Unknown database type: [{}]".format(db_type))
+        setattr(namespace, self.dest, db_impl(db_conn))
+
+
 def main():
-    parser = ArgumentParser(prog="blockchain", description="Blockchain Node Web Application")
+    parser = argparse.ArgumentParser(prog="blockchain", description="Blockchain Node Web Application")
     parser.add_argument("-p", "--port", default=5000, type=int, help="port to listen on")
     parser.add_argument("-n", "--node", help="Unique identifier of the node. Generate one if omitted.")
-    parser.add_argument(
-        "--db",
-        "--database",
-        default="file",
-        choices=list(DB_TYPES),
-        help="Database to use. Formatted as [type://connection-detail].",
-    )
+    parser.add_argument("--db", "--database", default="file", action=DatabaseTypeAction,
+                        help="Database to use. Formatted as [type://connection-detail].")
+
     log_args = parser.add_argument_group(title="Logger", description="Logging control.")
     level_args = log_args.add_mutually_exclusive_group()
-    level_args.add_argument("-d", "--debug", action="store_true", help="Debug level logging.")
     level_args.add_argument("-q", "--quiet", action="store_true", help="Disable logging except errors.")
+    level_args.add_argument("-d", "--debug", action="store_true",
+                            help="Debug level logging. This also enables error traceback outputs in responses.")
     args = parser.parse_args()
 
     # set full module config
     level = logging.DEBUG if args.debug else logging.ERROR if args.quiet else logging.ERROR
     logger = get_logger("blockchain", level=level)
+    if level == logging.DEBUG:
+        app.debug = True
 
     try:
         port = args.port
-
-        db_type = args.db.split(":")[0]
-        db_impl = DB_TYPES.get(db_type)
-        if not db_impl:
-            raise ValueError("unknown database type: [{}]".format(db_type))
-        app.db = db_impl(args.db)
+        app.db = args.db
 
         # Generate a globally unique address for this node
-        node_id = args.node if args.node else str(uuid.uuid4()).replace("-", "")
-        app.config["node"] = node_id
-        app.blockchain = Blockchain(app.db.load_chain())
+        app.node = args.node if args.node else str(uuid.uuid4()).replace("-", "")
+        app.blockchain = app.db.load_chain()
         app.run(host="0.0.0.0", port=port)
     except Exception as exc:
         logger.error("Unhandled error: %s", exc, exc_info=exc)
