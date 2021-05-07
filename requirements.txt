@@ -1,3 +1,5 @@
 addict
+flasgger
 flask
+flask_restx
 requests
