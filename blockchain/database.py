@@ -7,7 +7,8 @@ from blockchain.impl import Block, Blockchain
 from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, Tuple
+    from uuid import UUID
 
 LOGGER = get_logger(__name__)
 
@@ -40,34 +41,50 @@ class Database(abc.ABC):
 class FileSystemDatabase(Database):
     def __init__(self, path, *args, **kwargs):
         super(FileSystemDatabase, self).__init__(*args, **kwargs)
-        self.path = path.split("://")[-1]
-        os.makedirs(self.path, exist_ok=True)
+        path = path.split("://")[-1]
+        if os.path.isfile(path) and path.endswith(".json"):
+            self.path = path
+        elif os.path.isdir(path):
+            chain = os.path.join(path, "chain.json")
+            if os.path.isfile(chain) and chain.endswith(".json"):
+                self.path = chain
+            os.makedirs(path, exist_ok=True)
+
+    @property
+    def stored(self):
+        return os.path.isfile(self.path)
 
     def get_chain_location(self, chain_id):
-        if chain_id:
-            store_path = os.path.join(self.path, chain_id)
+        # type: (Optional[str, UUID]) -> Tuple[str, str]
+        if self.stored:
+            store_path = os.path.dirname(self.path)
+            chain_path = self.path
         else:
-            store_path = os.path.join(self.path)
-        chain_path = os.path.join(store_path, "chain.json")
+            if chain_id:
+                store_path = os.path.join(self.path, str(chain_id))
+            else:
+                store_path = self.path
+            chain_path = os.path.join(store_path, "chain.json")
         return store_path, chain_path
 
     def load_chain(self, chain_id=None):
-        # type:
+        # type: (Optional[str, UUID]) -> Blockchain
         """
         Load blockchain from file system.
         """
-        chain = []
+        blocks = []
         store_path, chain_path = self.get_chain_location(chain_id)
         if not os.path.isfile(chain_path):
             LOGGER.warning("No such chain: [%s]", chain_path)
         else:
             with open(chain_path) as chain_file:
-                block_ids = json.load(chain_file)
-            LOGGER.info("%s blocks in chain [%s]", len(block_ids), chain_path)
-            for block_id in block_ids:
+                blockchain = json.load(chain_file)
+            LOGGER.info("%s blocks in chain [%s]", len(blockchain["chain"]), chain_path)
+            chain_id = blockchain["id"]
+            for block_id in blockchain["chain"]:
                 block = self.load_block(block_id, chain_id)
-                chain.append(block)
-        return Blockchain(chain, id=chain_id)
+                blocks.append(block)
+        return Blockchain(chain=blocks, id=chain_id)
 
     def load_block(self, block_id, chain_id=None):
         # type: (str, Optional[str]) -> Block
@@ -91,6 +108,8 @@ class FileSystemDatabase(Database):
             json.dump(chain.json(), chain_file)
         for block in chain.blocks:
             self.save_block(block, chain_id=chain.id)
+        if not self.stored:
+            self.path = chain_path
 
     def save_block(self, block, chain_id=None):
         # type: (Block, Optional[str]) -> None
@@ -99,6 +118,8 @@ class FileSystemDatabase(Database):
         """
         store_path, _ = self.get_chain_location(chain_id)
         block_path = os.path.join(store_path, "{}.json".format(block.id))
+        if os.path.isfile(block_path):
+            return
         with open(block_path, "w") as block_file:
             json.dump(block.json(), block_file)
 

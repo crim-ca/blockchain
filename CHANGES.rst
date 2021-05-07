@@ -7,7 +7,16 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+Features / Changes
+~~~~~~~~~~~~~~~~~~~~~
 * Update linting of strings to uniformize the code.
+* Add automatic generation of OpenAPI and JSON schemas.
+* Add automatic resolution of package metadata from setup, which itself resolves fields the
+  multiple root repository files (``CHANGES``, ``README``, ``LICENSE``, ``requirements.txt``, etc.).
+
+Bug Fixes
+~~~~~~~~~~~~~~~~~~~~~
+* Fix resolution and loading of ``FileSystemDatabase`` blockchain contents from existing data files.
 
 `0.1.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.1.0>`_ (2021-05-01)
 ---------------------------------------------------------------------------------------------------------------

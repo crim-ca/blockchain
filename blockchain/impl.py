@@ -8,11 +8,12 @@ from urllib.parse import urlparse
 
 import requests
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
+from flask import jsonify
 
 from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, List, Optional
+    from typing import Any, Dict, Iterable, List, Optional
     from blockchain import JSON
 
 LOGGER = get_logger(__name__)
@@ -27,9 +28,12 @@ class Base(AttributeDict, abc.ABC):
 
     __json__ = True  # repr as JSON
 
-    def __init__(self, *args, **kwargs):
-        super(Base, self).__init__(*args, **kwargs)
-        self.setdefault("id", uuid.uuid4())
+    def __init__(self, *_, **kwargs):
+        items = dict(*_)
+        _id = items.pop("id", kwargs.pop("id", uuid.uuid4())) or uuid.uuid4()  # enforce generation if None/missing
+        kwargs.update(items)
+        kwargs.update({"id": _id})
+        super(Base, self).__init__(**kwargs)
 
     def __str__(self):
         # type: () -> str
@@ -107,7 +111,13 @@ class Transaction(Base):
 
 class Blockchain(Base):
     def __init__(self, chain=None, *_, **__):
+        # type: (Iterable[Block], Any, Any) -> None
+        """
+        Initialize the blockchain.
 
+        If blocks are provided, they are loaded as is.
+        Otherwise, generate the genesis block.
+        """
         super(Blockchain, self).__init__(*_, **__)
         self.current_transactions = []
         self["blocks"] = chain or []
@@ -117,13 +127,13 @@ class Blockchain(Base):
         if not self.blocks:
             self.new_block(previous_hash="1", proof=100)
 
-    def json(self, *_, **__):
+    def json(self, *_, detail=False, **__):
         # type: (Any, Any) -> JSON
-        return {
+        return jsonify({
             "id": self.id,
-            "chain": [block.id for block in self.blocks],
-            "nodes": list(self.nodes)
-        }
+            "nodes": list(self.nodes),
+            "chain": [block.json() if detail else block .id for block in self.blocks]
+        }).json
 
     @property
     def blocks(self):

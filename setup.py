@@ -29,7 +29,12 @@ LOGGER.setLevel(logging.INFO)
 LOGGER.info("starting setup")
 
 DESCRIPTION = ""
-with open("README.md") as readme_file:
+if os.path.isfile("README.rst"):
+    README_FILE = "README.rst"
+else:
+    README_FILE = "README.md"
+README_TYPE = ("text/x-rst" if README_FILE.endswith(".rst") else "text/markdown") + "; charset=UTF-8"
+with open(README_FILE) as readme_file:
     README = readme_file.read()
     lines = [line.strip() for line in README.splitlines() if not line.startswith("#")]
     found = False
@@ -46,14 +51,23 @@ with open("README.md") as readme_file:
 
 LICENSE = ""
 LICENSE_NAME = ""
-if os.path.exists("LICENSE"):
-    with open("LICENSE") as license_file:
+LICENSE_FILE = ""
+for ext in ["", ".rst", ".md"]:
+    if os.path.isfile("LICENSE.{}".format(ext)):
+        LICENSE_FILE = "LICENSE.{}".format(ext)
+        break
+if os.path.isfile(LICENSE_FILE):
+    with open(LICENSE_FILE) as license_file:
         LICENSE = license_file.read()
         LICENSE_NAME = [line.strip() for line in LICENSE.splitlines() if line.strip()][0]
 
 CHANGES = ""
 if os.path.isfile("CHANGES.rst"):
-    with open("CHANGES.rst") as changes_file:
+    CHANGES_FILE = "CHANGES.rst"
+else:
+    CHANGES_FILE = "CHANGES.md"
+if os.path.isfile(CHANGES_FILE):
+    with open(CHANGES_FILE) as changes_file:
         CHANGES = changes_file.read().replace(".. :changelog:", "")
 
 
@@ -73,7 +87,8 @@ setup(
     name=PACKAGE_NAME,
     version="0.1.0",
     description=DESCRIPTION,
-    long_description=README + "\n\n" + CHANGES,
+    long_description=README,
+    long_description_content_type=README_TYPE,
     author="CRIM",
     maintainer="Francis Charette-Migneault",
     maintainer_email="francis.charette-migneault@crim.ca",
@@ -97,6 +112,7 @@ setup(
     # -- Package structure -------------------------------------------------
     packages=[PACKAGE_NAME],
     package_dir={PACKAGE_NAME: PACKAGE_NAME},
+    package_data={"": ["*.rst", "*md"] + ([LICENSE_FILE] if LICENSE_FILE else [])},
     include_package_data=True,
     install_requires=REQUIREMENTS[""],
     extras_require={req: REQUIREMENTS[req] for req in REQUIREMENTS if req},
@@ -116,4 +132,3 @@ setup(
         ],
     }
 )
-LOGGER.info("setup complete")
