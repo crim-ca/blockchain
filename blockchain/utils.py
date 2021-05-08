@@ -3,8 +3,6 @@ import os
 import sys
 from typing import TYPE_CHECKING
 
-from flask_restx import inputs
-
 if TYPE_CHECKING:
     from typing import Optional
 
@@ -48,10 +46,3 @@ def set_logger_config(logger, force_stdout=False, message_format=None, datetime_
     if message_format or datetime_format:
         handler.setFormatter(logging.Formatter(fmt=message_format, datefmt=datetime_format))
     return logger
-
-
-def asbool(value, default=False):
-    try:
-        return inputs.boolean(str(value))
-    except ValueError:
-        return default

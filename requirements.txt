@@ -1,5 +1,9 @@
 addict
-flasgger
+apispec
+# flasgger
 flask
-flask_restx
+flask_apispec
+# flask_restx
+marshmallow
 requests
+webargs

@@ -7,7 +7,16 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+Features / Changes
+~~~~~~~~~~~~~~~~~~~~~
+* Restructure API into separate blueprints sections for the main blockchain functionalities and registered nodes
+  for consensus resolution.
+* Add provision of JSON/YAML OpenAPI schema and rendering of Swagger UI with it.
+* Employ auto schema validator and parameters in functions to retrieved parsed queries.
+
+Bug Fixes
+~~~~~~~~~~~~~~~~~~~~~
+* Fix resolution if LICENSE metadata.
 
 `0.2.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.2.0>`_ (2021-05-07)
 ---------------------------------------------------------------------------------------------------------------
