@@ -53,8 +53,8 @@ LICENSE = ""
 LICENSE_NAME = ""
 LICENSE_FILE = ""
 for ext in ["", ".rst", ".md"]:
-    if os.path.isfile("LICENSE.{}".format(ext)):
-        LICENSE_FILE = "LICENSE.{}".format(ext)
+    if os.path.isfile("LICENSE{}".format(ext)):
+        LICENSE_FILE = "LICENSE{}".format(ext)
         break
 if os.path.isfile(LICENSE_FILE):
     with open(LICENSE_FILE) as license_file:
@@ -96,7 +96,7 @@ setup(
     contact_email="info@crim.ca",
     url="https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain",
     platforms=["linux_x86_64"],
-    license=LICENSE_NAME,
+    license=LICENSE_NAME.replace(" License", ""),
     keywords="Blockchain, Security, Data Integrity, Consensus",
     classifiers=[
         "Development Status :: 3 - Alpha",
