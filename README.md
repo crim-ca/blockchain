@@ -6,9 +6,9 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 > Évaluer l’utilisation du blockchain pour garantir l’intégrité et la traçabilité des données privées.
 
 
-[![version badge](https://img.shields.io/badge/latest%20version-0.2.0-blue)][version-url]
+[![version badge](https://img.shields.io/badge/latest%20version-0.3.0-blue)][version-url]
 
-[version-url]: https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.2.0
+[version-url]: https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.3.0
 
 ## Installation
 
