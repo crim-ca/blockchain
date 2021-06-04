@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import uuid
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -46,3 +47,11 @@ def set_logger_config(logger, force_stdout=False, message_format=None, datetime_
     if message_format or datetime_format:
         handler.setFormatter(logging.Formatter(fmt=message_format, datefmt=datetime_format))
     return logger
+
+
+def is_uuid(obj):
+    try:
+        uuid.UUID(str(obj))
+    except (TypeError, ValueError):
+        return False
+    return True

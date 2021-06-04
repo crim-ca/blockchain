@@ -13,6 +13,7 @@ Features / Changes
   for consensus resolution.
 * Add provision of JSON/YAML OpenAPI schema and rendering of Swagger UI with it.
 * Employ auto schema validator and parameters in functions to retrieved parsed queries.
+* Update the API and database implementation to support multiple parallel blockchains.
 
 Bug Fixes
 ~~~~~~~~~~~~~~~~~~~~~
