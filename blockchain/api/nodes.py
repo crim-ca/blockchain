@@ -8,7 +8,7 @@ NODES = Blueprint("nodes", __name__, url_prefix="/nodes")
 
 
 @NODES.route("/", methods=["GET"])
-def nodes_links():
+def list_nodes():
     links = []
     scope = NODES.name + "."
     for rule in APP.url_map.iter_rules():
@@ -16,15 +16,10 @@ def nodes_links():
         if endpoint.startswith(scope):
             rel = endpoint.split(".")[-1] if endpoint != request.endpoint else "self"
             links.append({"href": urljoin(request.url, url_for(endpoint)), "rel": rel})
-    return jsonify({"links": links})
+    return jsonify({"nodes": list(APP.nodes), "links": links})
 
 
-@NODES.route("/members", methods=["GET"])
-def list_nodes():
-    return jsonify({"nodes": list(APP.blockchain.nodes)}), 200
-
-
-@NODES.route("/register", methods=["POST"])
+@NODES.route("/", methods=["POST"])
 def register_nodes():
     values = request.get_json()
     nodes = values.get("nodes")
@@ -32,22 +27,12 @@ def register_nodes():
         return "Error: Please supply a valid list of nodes", 400
 
     for node in nodes:
-        APP.blockchain.register_node(node)
+        APP.nodes.add(node)
+        for chain in APP.blockchains.values():
+            chain.register_node(node)
 
     response = {
         "message": "New nodes have been added",
-        "total_nodes": list(APP.blockchain.nodes),
+        "total_nodes": list(APP.nodes),
     }
     return jsonify(response), 201
-
-
-@NODES.route("/resolve", methods=["GET"])
-def consensus():
-    replaced = APP.blockchain.resolve_conflicts()
-
-    if replaced:
-        response = {"message": "Our chain was replaced", "new_chain": APP.blockchain.chain}
-    else:
-        response = {"message": "Our chain is authoritative", "chain": APP.blockchain.chain}
-    APP.db.save_chain(APP.blockchain)
-    return jsonify(response), 200

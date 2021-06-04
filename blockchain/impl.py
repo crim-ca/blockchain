@@ -32,12 +32,12 @@ class Base(AttributeDict, abc.ABC):
         items = dict(*_)
         _id = items.pop("id", kwargs.pop("id", uuid.uuid4())) or uuid.uuid4()  # enforce generation if None/missing
         kwargs.update(items)
-        kwargs.update({"id": _id})
+        kwargs.update({"id": uuid.UUID(str(_id))})
         super(Base, self).__init__(**kwargs)
 
     def __str__(self):
         # type: () -> str
-        return "{0} <{1}>".format(type(self).__name__, self.id)
+        return f"{type(self).__name__} <{self.id}>"
 
     # FIXME: remove when integrated (https://github.com/mewwts/addict/pull/139)
     def __repr__(self):
@@ -47,7 +47,7 @@ class Base(AttributeDict, abc.ABC):
                 repr_ = json.dumps(self.json(force=False), indent=2, ensure_ascii=False)
             except Exception:  # noqa
                 return dict.__repr__(self)
-            return "{0}.{1}\n{2}".format(cls.__module__, cls.__name__, repr_)
+            return f"{cls.__module__}.{cls.__name__}\n{repr_}"
         return dict.__repr__(self)
 
     # FIXME: remove when integrated (https://github.com/mewwts/addict/pull/139)
@@ -110,8 +110,8 @@ class Transaction(Base):
 
 
 class Blockchain(Base):
-    def __init__(self, chain=None, *_, **__):
-        # type: (Iterable[Block], Any, Any) -> None
+    def __init__(self, chain=None, nodes=None, *_, **__):
+        # type: (Optional[Iterable[Block]], Optional[Iterable[str]], Any, Any) -> None
         """
         Initialize the blockchain.
 
@@ -121,7 +121,7 @@ class Blockchain(Base):
         super(Blockchain, self).__init__(*_, **__)
         self.current_transactions = []
         self["blocks"] = chain or []
-        self.nodes = set()
+        self.nodes = set(nodes or [])
 
         # Create the genesis block
         if not self.blocks:
@@ -129,11 +129,11 @@ class Blockchain(Base):
 
     def json(self, *_, detail=False, **__):
         # type: (Any, Any) -> JSON
-        return jsonify({
-            "id": self.id,
+        return {
+            "id": str(self.id),
             "nodes": list(self.nodes),
-            "chain": [block.json() if detail else block .id for block in self.blocks]
-        }).json
+            "blocks": [block.json() if detail else str(block.id) for block in self.blocks]
+        }
 
     @property
     def blocks(self):
@@ -208,7 +208,7 @@ class Blockchain(Base):
 
         # Grab and verify the chains from all the nodes in our network
         for node in neighbours:
-            response = requests.get(f"http://{node}/chain")
+            response = requests.get(f"http://{node}/chains/{self.id!s}/blocks")
 
             if response.status_code == 200:
                 length = response.json()["length"]
@@ -319,3 +319,18 @@ class Blockchain(Base):
         guess = f"{last_proof}{proof}{last_hash}".encode()
         guess_hash = hashlib.sha256(guess).hexdigest()
         return guess_hash[:4] == "0000"
+
+
+class MultiChain(dict):
+    """
+    Mapping of UUID to Blockchain with types validation and conversion.
+    """
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __setitem__(self, key, value):
+        if not isinstance(value, Blockchain):
+            raise ValueError(f"Not a blockchain: {value}")
+        if not isinstance(key, uuid.UUID):
+            key = uuid.UUID(key)
+        dict.__setitem__(self, key, value)

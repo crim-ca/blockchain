@@ -8,16 +8,17 @@ from flask_apispec import FlaskApiSpec, doc, marshal_with, use_kwargs
 
 from blockchain import __meta__, __title__
 from blockchain.api import schemas
+from blockchain.api.block import BLOCK
 from blockchain.api.chain import CHAIN
 from blockchain.api.nodes import NODES
-from blockchain.impl import Blockchain
 
 if TYPE_CHECKING:
     from blockchain.database import Database
+    from blockchain.impl import MultiChain
 
 
 class BlockchainWebApp(Flask):
-    blockchain = None   # type: Blockchain
+    blockchains = None  # type: MultiChain
     node = None         # type: str
     url = None          # type: str
     db = None           # type: Database
@@ -46,7 +47,7 @@ def frontpage():
             {"rel": "self", "href": request.url}
         ]
     }
-    return jsonify(body), 200
+    return jsonify(body)
 
 
 @APP.route("/schema", methods=["GET"])
@@ -85,7 +86,8 @@ APP.config.update({
         }
     )
 })
+APP.register_blueprint(BLOCK)
 APP.register_blueprint(CHAIN)
 APP.register_blueprint(NODES)
-API = FlaskApiSpec(APP)
+API = FlaskApiSpec(APP, document_options=False)
 API.register_existing_resources()

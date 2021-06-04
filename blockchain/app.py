@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from blockchain.api import APP
 from blockchain.database import DB_TYPES
+from blockchain.impl import Blockchain
 from blockchain.utils import get_logger
 
 
@@ -21,12 +22,12 @@ class DatabaseTypeAction(argparse.Action):
             db_conn = uri.netloc
         else:
             if not uri.path.startswith("/"):
-                raise ValueError("Database URI without scheme must be an absolute path: [{}]".format(uri))
+                raise ValueError(f"Database URI without scheme must be an absolute path: [{uri!s}]")
             db_type = "file"
             db_conn = uri.path
         db_impl = DB_TYPES.get(db_type)
         if not db_impl:
-            raise ValueError("Unknown database type: [{}]".format(db_type))
+            raise ValueError(f"Unknown database type: [{db_type!s}]")
         setattr(namespace, self.dest, db_impl(db_conn))
 
 
@@ -34,8 +35,11 @@ def main():
     parser = argparse.ArgumentParser(prog="blockchain", description="Blockchain Node Web Application")
     parser.add_argument("-p", "--port", default=5000, type=int, help="port to listen on")
     parser.add_argument("-n", "--node", help="Unique identifier of the node. Generate one if omitted.")
-    parser.add_argument("--db", "--database", default="file", action=DatabaseTypeAction,
-                        help="Database to use. Formatted as [type://connection-detail].")
+
+    db_args = parser.add_argument_group(title="Database", description="Database options.")
+    db_args.add_argument("--db", "--database", required=True, action=DatabaseTypeAction,
+                         help="Database to use. Formatted as [type://connection-detail].")
+    db_args.add_argument("-N", "--new", action="store_true", help="Generate the new blockchain with genesis block.")
 
     log_args = parser.add_argument_group(title="Logger", description="Logging control.")
     level_args = log_args.add_mutually_exclusive_group()
@@ -54,9 +58,15 @@ def main():
         port = args.port
         APP.db = args.db
 
+        if args.new:
+            chain = Blockchain()
+            logger.info("New blockchain: [%s]", chain.id)
+            APP.db.save_chain(chain)
+            sys.exit(0)
+
         # Generate a globally unique address for this node
-        APP.node = args.node if args.node else str(uuid.uuid4()).replace("-", "")
-        APP.blockchain = APP.db.load_chain()
+        APP.node = args.node if args.node else str(uuid.uuid4())
+        APP.blockchains = APP.db.load_multi_chain()
         APP.run(host="0.0.0.0", port=port)
     except Exception as exc:
         logger.error("Unhandled error: %s", exc, exc_info=exc)

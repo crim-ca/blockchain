@@ -15,19 +15,26 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 1. Make sure [Python 3.6+](https://www.python.org/downloads/) is installed. 
 2. Install the dependencies in your preferred virtual environment manager (`pipenv`, `conda`, etc.) 
 
-``` shell
+```shell
 pip install -e <blockchain-repo-root> 
 ```
 
-3. Run the server:
-``` shell
+3. Generate one or more blockchains:
+```shell
+python blockchain/app.py --port 5002 --db file://<custom-directory> --new
+ ```
+
+4. Run one or more server nodes:
+```shell
 python blockchain/app.py  # defaults to port 5000, and file storage in "./db" location 
-python blockchain/app.py -p 5001
-python blockchain/app.py --port 5002 --file://<custom-directory>
+python blockchain/app.py -p 5001 --db file://<custom-directory>  # loads all "<blockchain-id>/chain.json" in directory
+python blockchain/app.py -p 5001 --db file://<custom-directory>/<id>/chain.json  # loads only that blockchain
+python blockchain/app.py -p 5001 --db file://<custom-directory>/chains.txt  # loads only specific blockchains IDs
+python blockchain/app.py --port 5002 --db <db-impl>://<db-connector>
  ```
 
 List arguments: 
-``` shell
+```shell
 python blockchain/app.py --help
 ```
     
@@ -39,19 +46,19 @@ Follow the instructions below to create a local Docker container:
 1. Clone this repository
 2. Build the docker container
 
-``` shell
+```shell
 docker build -t blockchain .
 ```
 
 3. Run the container
 
-``` shell
+```shell
 docker run --rm -p 80:5000 blockchain
 ```
 
 4. To add more instances, vary the public port number before the colon:
 
-``` shell
+```shell
 docker run --rm -p 81:5000 blockchain
 docker run --rm -p 82:5000 blockchain
 docker run --rm -p 83:5000 blockchain
