@@ -1,15 +1,19 @@
 import uuid
 from typing import TYPE_CHECKING
 
+import requests
 from flask import Blueprint, abort, jsonify, request
 from flask import current_app as APP  # noqa
+from flask_apispec import marshal_with
+
+from blockchain.api import schemas
+from blockchain.impl import Blockchain
 
 if TYPE_CHECKING:
-    from typing import Tuple, Union
+    from typing import Optional, Tuple, Union
 
-    from blockchain.impl import Block, Blockchain
-
-    AnyRef = Union[str, uuid.UUID, int]
+    from blockchain import AnyRef
+    from blockchain.impl import Block
 
 
 CHAIN = Blueprint("chain", __name__, url_prefix="/chains")
@@ -17,15 +21,17 @@ CHAIN_ID = "<uuid:chain_id>"
 BLOCK_REF = "<string:block_ref>"
 
 
-def get_chain(chain_id):
-    # type: (uuid.UUID) -> Blockchain
+def get_chain(chain_id, allow_missing=False):
+    # type: (uuid.UUID) -> Optional[Blockchain]
     """
     Obtains the chain matching the UUID if it exists.
 
     :raises: chain cannot be found or reference is invalid.
-    :returns: matched chain.
+    :returns: matched chain or None if allowed missing ones.
     """
     if chain_id not in APP.blockchains:
+        if allow_missing:
+            return None
         abort(404, f"Blockchain [{chain_id!s}] not found.")
     return APP.blockchains[chain_id]
 
@@ -132,14 +138,43 @@ def chain_block(chain_id, block_ref):
     return jsonify({"chain": chain.id, "block": block})
 
 
+# FIXME: apply schema validation to fix invalid values
 @CHAIN.route(f"/{CHAIN_ID}/resolve", methods=["GET"])
+@marshal_with(schemas.ResolveChain, 200,
+              description="Resolved blockchain following consensus with other nodes.", apply=False)
+@marshal_with(schemas.ResolveChain, 201,
+              description="Generated missing blockchain retrieved from other nodes.", apply=False)
 def consensus(chain_id):
-    blockchain = get_chain(chain_id)
-    replaced = blockchain.resolve_conflicts()
+    blockchain = get_chain(chain_id, allow_missing=True)
+    generated = False
+    if not blockchain:
+        # special case of "first pull" of an entirely missing blockchain reference locally, but available elsewhere
+        # when node doesn't have any block yet (eg: just created node/chain), fetch full definition if possible
+        if not APP.nodes:
+            abort(404, f"Blockchain [{chain_id!s}] not found and cannot be resolved (no blockchain nodes available).")
+        for node in APP.nodes:
+            try:
+                resp = requests.get(f"{node.url}/chains/{chain_id}", timeout=2)
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                continue
+            if resp.status_code == 200:
+                blockchain = Blockchain(id=chain_id)  # setup, resolve conflicts will follow
+                generated = True
+                break
+        if not blockchain:
+            abort(404, f"Blockchain [{chain_id!s}] not found and cannot be resolved from other blockchain nodes.")
 
-    if replaced:
-        response = {"message": "Our chain was replaced", "new_chain": blockchain.chain}
+    replaced, validated = blockchain.resolve_conflicts(APP.nodes)
+    if generated:
+        message = "Missing blockchain was generated from remote node match."
+        APP.blockchains[chain_id] = blockchain  # apply resolved generation
+    elif replaced:
+        message = "Blockchain was replaced with resolved conflicts."
     else:
-        response = {"message": "Our chain is authoritative", "chain": blockchain.chain}
+        message = "Blockchain is authoritative."
+    data = {"description": message, "updated": blockchain.updated,
+            "resolved": generated or replaced, "validated": validated,
+            "chain": blockchain.chain}
+    code = 201 if generated else 200
     APP.db.save_chain(blockchain)
-    return jsonify(response), 200
+    return data, code

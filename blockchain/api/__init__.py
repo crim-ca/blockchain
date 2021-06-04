@@ -3,8 +3,9 @@ from urllib.parse import urljoin
 
 from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
-from flask import Flask, Response, jsonify, request
+from flask import Flask, Response, json, jsonify, request
 from flask_apispec import FlaskApiSpec, doc, marshal_with, use_kwargs
+from werkzeug.exceptions import HTTPException
 
 from blockchain import __meta__, __title__
 from blockchain.api import schemas
@@ -13,12 +14,15 @@ from blockchain.api.chain import CHAIN
 from blockchain.api.nodes import NODES
 
 if TYPE_CHECKING:
+    from typing import List
+
     from blockchain.database import Database
-    from blockchain.impl import MultiChain
+    from blockchain.impl import MultiChain, Node
 
 
 class BlockchainWebApp(Flask):
     blockchains = None  # type: MultiChain
+    nodes = None        # type: List[Node]  # list instead of set to preserve order
     node = None         # type: str
     url = None          # type: str
     db = None           # type: Database
@@ -28,6 +32,19 @@ class BlockchainWebApp(Flask):
 APP = BlockchainWebApp(__name__)
 APP.url_map.strict_slashes = False  # allow trailing slashes
 APP.config["JSON_SORT_KEYS"] = False
+
+
+@APP.errorhandler(HTTPException)
+def handle_exception(e):
+    """Return JSON instead of HTML for HTTP errors."""
+    response = e.get_response()
+    response.data = json.dumps({
+        "code": e.code,
+        "name": e.name,
+        "description": e.description,
+    })
+    response.content_type = "application/json"
+    return response
 
 
 @APP.route("/", methods=["GET"])

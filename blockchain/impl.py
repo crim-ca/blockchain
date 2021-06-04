@@ -3,17 +3,18 @@ import datetime
 import hashlib
 import json
 import uuid
+from enum import Enum, auto
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 import requests
+from dateutil import parser as dt_parser
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
-from flask import jsonify
 
 from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
-    from typing import Any, Dict, Iterable, List, Optional
+    from typing import Any, Dict, Iterable, List, Optional, Tuple
     from blockchain import JSON
 
 LOGGER = get_logger(__name__)
@@ -85,23 +86,20 @@ class Base(AttributeDict, abc.ABC):
         return dict(self)
 
 
-class Block(Base):
-    """
-    Block used to form the chain.
-    """
-
+class WithDatetime(Base):
     def __init__(self, *args, **kwargs):
-        self.update({"index": None, "transactions": [], "proof": None, "previous_has": None})
-        super(Block, self).__init__(*args, **kwargs)
-        self.setdefault("timestamp", self.timestamp)  # generate
+        # generate or set created datetime
+        created = kwargs.pop("created", kwargs.pop("timestamp", self.created))
+        self.setdefault("created", created)
+        super(WithDatetime, self).__init__(*args, **kwargs)
 
     @property
-    def timestamp(self):
+    def created(self):
         # type: () -> str
-        dt = self.get("timestamp")
+        dt = self.get("created")
         if dt is None:
             dt = datetime.datetime.utcnow().isoformat()
-            self["timestamp"] = dt
+            self["created"] = dt
         return dt
 
 
@@ -109,9 +107,140 @@ class Transaction(Base):
     pass
 
 
+class EnumNameHyphenCase(Enum):
+    def _generate_next_value_(self, start, count, last_values):
+        return self.lower().replace("_", "-")
+
+
+class ConsentAction(EnumNameHyphenCase):
+    FIRST_NAME_READ = auto()
+    FIRST_NAME_WRITE = auto()
+    LAST_NAME_READ = auto()
+    LAST_NAME_WRITE = auto()
+    EMAIL_READ = auto()
+    EMAIL_WRITE = auto()
+
+
+class Consent(WithDatetime):
+    def __init__(self, action, consent, *args, **kwargs):
+        # type: (ConsentAction, bool, Any, Any) -> None
+        super(Consent, self).__init__(*args, **kwargs)
+        self["action"] = action
+        self["consent"] = consent
+        self["expire"] = kwargs.get("expire")
+
+    @property
+    def action(self):
+        # type: () -> str
+        return self["action"]
+
+    @property
+    def expire(self):
+        dt = self["expire"]
+        return datetime.datetime.fromisoformat(dt)
+
+    @expire.setter
+    def expire(self, expire):
+        if not isinstance(expire, (str, datetime.datetime)):
+            raise TypeError(f"Invalid expire type: {type(expire)!s}")
+        if isinstance(expire, str):
+            expire = dt_parser.parse(expire)
+        self["expire"] = expire.isoformat()
+
+
+class ConsentHistory(WithDatetime):
+    def __init__(self, consents=None, *args, **kwargs):
+        # type: (Iterable[Consent], Any, Any) -> None
+        consents = {consent.action: consent for consent in consents or []}
+        for action in ConsentAction:
+            consents.setdefault(action, Consent(action, False))
+        self["consents"] = consents
+        super(ConsentHistory, self).__init__(*args, **kwargs)
+
+    def new_consent(self, consent):
+        # type: (Consent) -> None
+        self.consents()
+
+    def consents(self):
+        return self["consents"]
+
+    @property
+    def history(self):
+        return [
+
+        ]
+
+
+class Node(Base):
+    def __init__(self, url):
+        self._id = None
+        self._fix_url(url)
+        super(Node, self).__init__()
+        self.sync_id()
+
+    def __getitem__(self, item):
+        if item == "id":
+            return self._id
+        return super(Node, self).__getitem__(item)
+
+    @property
+    def id(self):
+        if not self["id"]:
+            self._find_id()
+        return self["id"]
+
+    @property
+    def url(self):
+        return self["url"]
+
+    def json(self, **__):
+        _id = self.id  # inplace resolve as needed if it becomes available
+        return {"id": _id, "url": self.url, "resolved": _id is not None}
+
+    def _fix_url(self, endpoint):
+        parsed_url = urlparse(endpoint)
+        if parsed_url.netloc:
+            url = parsed_url.netloc
+        elif parsed_url.path:
+            # Accepts an URL without scheme like "192.168.0.5:5000".
+            url = parsed_url.path
+        else:
+            raise ValueError(f"Invalid node location: [{endpoint}]")
+        if not url.startswith("http"):
+            url = f"http://{url}"
+        self["url"] = url
+
+    def sync_id(self):
+        self._id = None  # reset (from Base)
+        try:
+            resp = requests.get(self.url, timeout=2)
+            if resp.status_code == 200:
+                self._id = resp.json()["node"]
+                return
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            pass
+        LOGGER.warning("Node ID not yet resolved for location: [%s]", self.url)
+
+
+class Block(WithDatetime):
+    """
+    Block used to form the chain.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.update({
+            "index": None,
+            "proof": None,
+            "previous_hash": None,
+            "transactions": [],
+            #"consents": ConsentHistory(),
+        })
+        super(Block, self).__init__(*args, **kwargs)
+
+
 class Blockchain(Base):
-    def __init__(self, chain=None, nodes=None, *_, **__):
-        # type: (Optional[Iterable[Block]], Optional[Iterable[str]], Any, Any) -> None
+    def __init__(self, chain=None, *_, **__):
+        # type: (Optional[Iterable[Block]], Any, Any) -> None
         """
         Initialize the blockchain.
 
@@ -121,17 +250,24 @@ class Blockchain(Base):
         super(Blockchain, self).__init__(*_, **__)
         self.current_transactions = []
         self["blocks"] = chain or []
-        self.nodes = set(nodes or [])
+        self.setdefault("updated", datetime.datetime.utcnow())
 
         # Create the genesis block
         if not self.blocks:
             self.new_block(previous_hash="1", proof=100)
 
+    def _update(self):
+        self["updated"] = datetime.datetime.utcnow()
+
+    @property
+    def updated(self):
+        return self["updated"]
+
     def json(self, *_, detail=False, **__):
         # type: (Any, Any) -> JSON
         return {
             "id": str(self.id),
-            "nodes": list(self.nodes),
+            "updated": self.updated.isoformat(),
             "blocks": [block.json() if detail else str(block.id) for block in self.blocks]
         }
 
@@ -143,24 +279,9 @@ class Blockchain(Base):
     @blocks.setter
     def blocks(self, chain):
         self["blocks"] = [Block(block) for block in chain]
+        self._update()
 
     chain = blocks  # alias
-
-    def register_node(self, address):
-        """
-        Add a new node to the list of nodes
-
-        :param address: Address of node. Eg. "http://192.168.0.5:5000"
-        """
-
-        parsed_url = urlparse(address)
-        if parsed_url.netloc:
-            self.nodes.add(parsed_url.netloc)
-        elif parsed_url.path:
-            # Accepts an URL without scheme like "192.168.0.5:5000".
-            self.nodes.add(parsed_url.path)
-        else:
-            raise ValueError("Invalid URL")
 
     def valid_chain(self, chain):
         """
@@ -192,27 +313,36 @@ class Blockchain(Base):
 
         return True
 
-    def resolve_conflicts(self):
+    def resolve_conflicts(self, nodes):
+        # type: (Iterable[Node]) -> Tuple[bool, bool]
         """
         This is our consensus algorithm, it resolves conflicts
         by replacing our chain with the longest one in the network.
 
-        :return: True if our chain was replaced, False if not
+        :returns:
+            Tuple of:
+                - True if our chain was replaced, False if not
+                - True if other nodes were available for consensus validation or False
         """
 
-        neighbours = self.nodes
         new_chain = None
+        validated = False
 
         # We're only looking for chains longer than ours
         max_length = len(self.blocks)
 
         # Grab and verify the chains from all the nodes in our network
-        for node in neighbours:
-            response = requests.get(f"http://{node}/chains/{self.id!s}/blocks")
+        for node in nodes:
+            try:
+                response = requests.get(f"{node.url}/chains/{self.id!s}/blocks", timeout=2)
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                LOGGER.warning("Node [%s] is unresponsive. Skipping it.", node.url)
+                continue
+            validated = True
 
             if response.status_code == 200:
                 length = response.json()["length"]
-                chain = response.json()["chain"]
+                chain = response.json()["blocks"]
 
                 # Check if the length is longer and the chain is valid
                 if length > max_length and self.valid_chain(chain):
@@ -222,9 +352,9 @@ class Blockchain(Base):
         # Replace our chain if we discovered a new, valid chain longer than ours
         if new_chain:
             self.blocks = new_chain
-            return True
+            return True, validated
 
-        return False
+        return False, validated
 
     def new_block(self, proof, previous_hash=None):
         # type: (int, Optional[str]) -> Block
@@ -237,10 +367,10 @@ class Blockchain(Base):
         """
 
         block = Block({
-            "index": len(self.blocks) + 1,
-            "transactions": self.current_transactions,
+            "index": len(self.blocks),
             "proof": proof,
             "previous_hash": previous_hash or self.hash(self.blocks[-1]),
+            "transactions": self.current_transactions,
         })
 
         # Reset the current list of transactions
