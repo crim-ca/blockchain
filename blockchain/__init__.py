@@ -6,12 +6,15 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Dict, List, Optional, Union
+    from uuid import UUID
 
     Number = Union[int, float]
     JsonValue = Optional[Union[bool, str, Number]]
     JsonObject = Dict[str, "JSON"]
     JsonArray = List["JSON"]
     JSON = Union[JsonValue, JsonArray, JsonObject]
+
+    AnyRef = Union[str, int, UUID]
 
 try:
     from importlib_metadata import metadata

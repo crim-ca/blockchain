@@ -1,16 +1,24 @@
 import logging
 import os
 import sys
+import uuid
+from urllib.parse import urljoin
 from typing import TYPE_CHECKING
 
-from flask_restx import inputs
+from flask import request, url_for
+from flask import current_app as APP  # noqa
 
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import List, Optional, Union
+
+    from flask import Blueprint
+
+    from blockchain import JSON
+    from blockchain.api import BlockchainWebApp
 
 
-def get_logger(name, level=None, force_stdout=None, message_format=None, datetime_format=None):
-    # type: (str, Optional[int], bool, Optional[str], Optional[str]) -> logging.Logger
+def get_logger(name, level=None, force_stdout=None, message_format=None, datetime_format=None, file=None):
+    # type: (str, Optional[int], bool, Optional[str], Optional[str], Optional[str]) -> logging.Logger
     """
     Immediately sets the logger level to avoid duplicate log outputs from the `root logger` and `this logger` when
     `level` is ``logging.NOTSET``.
@@ -21,13 +29,13 @@ def get_logger(name, level=None, force_stdout=None, message_format=None, datetim
         parent_module = os.path.split(os.path.dirname(__file__))[-1]
         level = level or logging.getLogger(parent_module).getEffectiveLevel() or logging.INFO
         logger.setLevel(level)
-    if force_stdout or message_format or datetime_format:
-        set_logger_config(logger, force_stdout, message_format, datetime_format)
+    if force_stdout or message_format or datetime_format or file:
+        set_logger_config(logger, force_stdout, message_format, datetime_format, file)
     return logger
 
 
-def set_logger_config(logger, force_stdout=False, message_format=None, datetime_format=None):
-    # type: (logging.Logger, bool, Optional[str], Optional[str]) -> logging.Logger
+def set_logger_config(logger, force_stdout=False, message_format=None, datetime_format=None, file=None):
+    # type: (logging.Logger, bool, Optional[str], Optional[str], Optional[str]) -> logging.Logger
     """
     Applies the provided logging configuration settings to the logger.
     """
@@ -47,11 +55,29 @@ def set_logger_config(logger, force_stdout=False, message_format=None, datetime_
             logger.addHandler(handler)
     if message_format or datetime_format:
         handler.setFormatter(logging.Formatter(fmt=message_format, datefmt=datetime_format))
+    if file:
+        handler = logging.FileHandler(file)
+        if message_format or datetime_format:
+            handler.setFormatter(logging.Formatter(fmt=message_format, datefmt=datetime_format))
+        logger.addHandler(handler)
     return logger
 
 
-def asbool(value, default=False):
+def is_uuid(obj):
     try:
-        return inputs.boolean(str(value))
-    except ValueError:
-        return default
+        uuid.UUID(str(obj))
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def get_links(scope, ):
+    # type: (Union[Blueprint, BlockchainWebApp]) -> List[JSON]
+    links = []
+    scope = scope.name + "."
+    for rule in APP.url_map.iter_rules():
+        endpoint = rule.endpoint
+        if endpoint.startswith(scope) and "<" not in str(rule) and ">" not in str(rule):
+            rel = endpoint.split(".")[-1] if endpoint != request.endpoint else "self"
+            links.append({"href": urljoin(request.url, url_for(endpoint)), "rel": rel})
+    return links
