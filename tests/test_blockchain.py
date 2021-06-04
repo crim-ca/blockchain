@@ -2,7 +2,7 @@ import hashlib
 import json
 from unittest import TestCase
 
-from blockchain.blockchain import Blockchain
+from blockchain.impl import Blockchain
 
 
 class BlockchainTestCase(TestCase):
@@ -51,7 +51,7 @@ class TestBlocksAndTransactions(BlockchainTestCase):
         latest_block = self.blockchain.last_block
 
         # The genesis block is create at initialization, so the length should be 2
-        assert len(self.blockchain.chain) == 2
+        assert len(self.blockchain.blocks) == 2
         assert latest_block["index"] == 2
         assert latest_block["timestamp"] is not None
         assert latest_block["proof"] == 123
@@ -84,8 +84,8 @@ class TestBlocksAndTransactions(BlockchainTestCase):
 
         created_block = self.blockchain.last_block
 
-        assert len(self.blockchain.chain) == 2
-        assert created_block is self.blockchain.chain[-1]
+        assert len(self.blockchain.blocks) == 2
+        assert created_block is self.blockchain.blocks[-1]
 
 
 class TestHashingAndProofs(BlockchainTestCase):
