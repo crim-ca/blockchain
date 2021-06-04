@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.3.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.3.0>`_ (2021-06-04)
+---------------------------------------------------------------------------------------------------------------
+
 Features / Changes
 ~~~~~~~~~~~~~~~~~~~~~
 * Restructure API into separate blueprints sections for the main blockchain functionalities and registered nodes
