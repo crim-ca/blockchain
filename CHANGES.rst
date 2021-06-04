@@ -14,6 +14,9 @@ Features / Changes
 * Add provision of JSON/YAML OpenAPI schema and rendering of Swagger UI with it.
 * Employ auto schema validator and parameters in functions to retrieved parsed queries.
 * Update the API and database implementation to support multiple parallel blockchains.
+* Improve resolution mechanism to allow initial consensus to generate the chain when it doesn't exist on current node
+  using another node reference.
+* Partial implementation of `Consent` related objects, but not yet applied to the blockchain.
 
 Bug Fixes
 ~~~~~~~~~~~~~~~~~~~~~

@@ -21,6 +21,32 @@ class FormatQuery(Schema):
     )
 
 
+class DetailQuery(Schema):
+    """
+    Detail representation the generated output.
+    """
+    detail = fields.Boolean(
+        required=False,
+        allow_none=True,
+        default=False,
+        attribute="detail",
+        description=__doc__.strip()
+    )
+
+
+class SyncQuery(Schema):
+    """
+    Force sync of external references.
+    """
+    sync = fields.Boolean(
+        required=False,
+        allow_none=True,
+        default=False,
+        attribute="sync",
+        description=__doc__.strip()
+    )
+
+
 class Frontpage(Schema):
     description = fields.Str()
     node = fields.UUID()
@@ -32,3 +58,26 @@ class GetChainSchema(Schema):
     parameters = [
         {"in": "query", "type": fields.Boolean(allow_none=True), "name": "detail", "required": False}
     ]
+
+
+class BlockSchema(fields.Mapping):
+    id = fields.UUID()
+    index = fields.Int()
+    proof = fields.Int()
+    created = fields.DateTime()
+    previous_hash = fields.Str()
+    # transactions =
+    # consents =
+
+
+class ChainSchema(fields.Mapping):
+    id = fields.UUID()
+    blocks = fields.List(BlockSchema)
+
+
+class ResolveChain(Schema):
+    description = fields.Str(description="Result of the consensus resolution.")
+    updated = fields.DateTime(description="Last moment the chain was updated by consensus resolution.")
+    resolved = fields.Boolean(description="Indicates if any update was applied following resolution.")
+    validated = fields.Boolean(description="Indicates if any other node was available for consensus.")
+    chain = fields.List(BlockSchema, description="Blocks that form the resolved chain.")
