@@ -3,6 +3,7 @@ apispec
 # flasgger
 flask
 flask_apispec
+flask_mako
 # flask_restx
 marshmallow
 python-dateutil
