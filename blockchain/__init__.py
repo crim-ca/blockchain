@@ -5,7 +5,7 @@ import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Optional, Union
+    from typing import Dict, List, Optional, TypedDict, Union
     from uuid import UUID
 
     Number = Union[int, float]
@@ -14,7 +14,9 @@ if TYPE_CHECKING:
     JsonArray = List["JSON"]
     JSON = Union[JsonValue, JsonArray, JsonObject]
 
+    AnyUUID = Union[UUID, str]
     AnyRef = Union[str, int, UUID]
+    Link = TypedDict("Link", {"href": str, "rel": str, "title": str})
 
 try:
     from importlib_metadata import metadata

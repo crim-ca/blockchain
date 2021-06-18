@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from flask import Blueprint
 
-    from blockchain import JSON
+    from blockchain import Link
     from blockchain.api import BlockchainWebApp
 
 
@@ -71,13 +71,17 @@ def is_uuid(obj):
     return True
 
 
-def get_links(scope, ):
-    # type: (Union[Blueprint, BlockchainWebApp]) -> List[JSON]
+def get_links(scope, self=True):
+    # type: (Union[Blueprint, BlockchainWebApp]) -> List[Link]
     links = []
     scope = scope.name + "."
     for rule in APP.url_map.iter_rules():
         endpoint = rule.endpoint
+        # if the endpoint rule contains a path parameter, skip it since it cannot be generated
         if endpoint.startswith(scope) and "<" not in str(rule) and ">" not in str(rule):
             rel = endpoint.split(".")[-1] if endpoint != request.endpoint else "self"
-            links.append({"href": urljoin(request.url, url_for(endpoint)), "rel": rel})
+            if rel == "self" and not self:
+                continue
+            title = rel.replace("_", " ").capitalize()
+            links.append({"href": urljoin(request.url, url_for(endpoint)), "rel": rel, "title": title})
     return links
