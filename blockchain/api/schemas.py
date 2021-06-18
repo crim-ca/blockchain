@@ -68,11 +68,8 @@ class ConsentBody(Schema):
 
     action = fields.Str(
         validate=OneOf([action.value for action in ConsentAction]),
-        required=False,
-        allow_none=True,
-        default="json",
-        attribute="format",
-        description=__doc__.strip()
+        required=True,
+        description="Action affected by the consent change."
     )
 
 
