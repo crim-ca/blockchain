@@ -1,6 +1,8 @@
 from marshmallow import Schema, fields
 from marshmallow.validate import OneOf
 
+from blockchain.impl import ConsentAction
+
 
 class Link(fields.Mapping):
     href = fields.URL()
@@ -58,6 +60,17 @@ class GetChainSchema(Schema):
     parameters = [
         {"in": "query", "type": fields.Boolean(allow_none=True), "name": "detail", "required": False}
     ]
+
+
+class ConsentBody(Schema):
+    class Meta:
+        attribute = "data"
+
+    action = fields.Str(
+        validate=OneOf([action.value for action in ConsentAction]),
+        required=True,
+        description="Action affected by the consent change."
+    )
 
 
 class BlockSchema(fields.Mapping):

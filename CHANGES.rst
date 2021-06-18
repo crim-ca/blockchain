@@ -7,7 +7,9 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Add consents implementation embedded in the blocks of the blockchains.
+* Add change tracking, history and resolution of latest consents from blockchain.
+* Add Mako templates and UI endpoints to display blockchains and their contents.
 
 `0.3.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.3.0>`_ (2021-06-04)
 ---------------------------------------------------------------------------------------------------------------
