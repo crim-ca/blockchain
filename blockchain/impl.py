@@ -60,6 +60,7 @@ class Base(AttributeDict, abc.ABC):
         base = {}
         _typ = type(self)
         for key, value in self.items():
+            key = str(key)  # ensure conversion
             if isinstance(value, (_typ, dict)):
                 base[key] = _typ(value).json()
             elif isinstance(value, (list, tuple)):
@@ -120,14 +121,21 @@ class ConsentAction(EnumNameHyphenCase):
     EMAIL_READ = auto()
     EMAIL_WRITE = auto()
 
+    def __str__(self):
+        return self.value
+
 
 class Consent(WithDatetime):
-    def __init__(self, action, consent, *args, **kwargs):
+    def __init__(self, action, consent, *args, expire=None, **kwargs):
         # type: (ConsentAction, bool, Any, Any) -> None
-        super(Consent, self).__init__(*args, **kwargs)
         self["action"] = action
         self["consent"] = consent
-        self["expire"] = kwargs.get("expire")
+        self["expire"] = expire
+        super(Consent, self).__init__(*args, **kwargs)
+
+    def __repr__(self):
+        expire = "forever" if self.expire is None else f"until [{self.expire}]"
+        return f"{self.action!s} [{int(self.consent)}] from [{self.created}] {expire}"
 
     @property
     def action(self):
@@ -148,27 +156,95 @@ class Consent(WithDatetime):
         self["expire"] = expire.isoformat()
 
 
-class ConsentHistory(WithDatetime):
-    def __init__(self, consents=None, *args, **kwargs):
-        # type: (Iterable[Consent], Any, Any) -> None
-        consents = {consent.action: consent for consent in consents or []}
-        for action in ConsentAction:
-            consents.setdefault(action, Consent(action, False))
+class ConsentChange(WithDatetime):
+    def __init__(self, *args, consents=None, **kwargs):
+        # type: (Any, Optional[Iterable[Consent]], Any) -> None
+        """
+        Create a new consent change definition.
+
+        Only the modified consents should be provided to reduce space in storage.
+        Duplicate consents will be ignored when generating change history.
+        """
+        if not consents or not all(isinstance(consent, Consent) for consent in consents):
+            consents = []
         self["consents"] = consents
-        super(ConsentHistory, self).__init__(*args, **kwargs)
-
-    def new_consent(self, consent):
-        # type: (Consent) -> None
-        self.consents()
-
-    def consents(self):
-        return self["consents"]
+        super(ConsentChange, self).__init__(*args, **kwargs)
 
     @property
-    def history(self):
-        return [
+    def consents(self):
+        # type: () -> List[Consent]
+        """
+        Obtain this block's consents (optionally changed) sorted by creation date.
+        """
+        return list(sorted(self["consents"], key=lambda c: c.created))
 
-        ]
+    @classmethod
+    def latest(cls, chain):
+        # type: (Blockchain) -> List[Consent]
+        """
+        Compute the latest consents resolution cumulated over the whole blockchain history.
+
+        If any known action does not provide any corresponding consent, it is defaulted to not consented.
+        """
+        chain.setdefault("states", {})
+        last_id = chain.states.consent_change_last_id
+        if not last_id or chain.last_block.id != last_id:
+            cls.history(chain)  # resolve it
+        consents = chain.states.consent_change_updated
+        undefined = [Consent(action, False) for action in ConsentAction if action not in consents]
+        return list(sorted(list(consents.values()) + undefined, key=lambda c: c.created))
+
+    @classmethod
+    def history(cls, chain):
+        # type: (Blockchain) -> List[str]
+        """
+        Compute the change history of consents across a blockchain.
+        """
+
+        # speed up skipping pre-computed without changes
+        changes = chain.states.consent_change_history  # type: List[str]
+        updated = chain.states.consent_change_updated  # type: Dict[ConsentAction, Consent]
+        last_id = chain.states.consent_change_last_id  # type: Optional[uuid.UUID]
+        if changes and last_id and last_id == chain.last_block.id:
+            LOGGER.debug("Using precomputed consent change history for blockchain [%s]", chain.id)
+            return changes
+
+        LOGGER.debug("Computing consent change history for blockchain [%s]", chain.id)
+        prev_block = None  # type: Optional[Block]
+        remain_blocks = chain.blocks
+        if last_id:
+            # previously pre-processed but didn't apply latest changes
+            # skip until missing block updates
+            for i in range(len(remain_blocks)):
+                if remain_blocks[i].id == last_id:
+                    prev_block = remain_blocks[i]
+                    remain_blocks = remain_blocks[i + 1:]
+
+        for block in remain_blocks:
+            # first block always creates initial consents
+            if prev_block is None:
+                for consent in block.consents:
+                    changes.append(f"[created] => {consent!r}")
+                    updated[consent.action] = consent
+                if not changes:
+                    changes.append("[initial] => (no consents)")
+            # check following block for change of consents
+            else:
+                for consent in block.consents:
+                    prev_consent = updated.get(consent.action)
+                    if prev_consent is None or prev_consent != consent:
+                        updated[consent.action] = consent
+                        changes.append(f"[updated] => {consent!r}")
+                    else:
+                        changes.append(f"[updated] =>> block without consents change")
+            prev_block = block
+
+        chain.states.unfreeze()
+        chain.states.consent_change_history = changes
+        chain.states.consent_change_updated = updated
+        chain.states.consent_change_last_id = prev_block.id if prev_block else None
+        chain.states.freeze()
+        return changes
 
 
 class Node(Base):
@@ -222,7 +298,7 @@ class Node(Base):
         LOGGER.warning("Node ID not yet resolved for location: [%s]", self.url)
 
 
-class Block(WithDatetime):
+class Block(ConsentChange):
     """
     Block used to form the chain.
     """
@@ -233,9 +309,16 @@ class Block(WithDatetime):
             "proof": None,
             "previous_hash": None,
             "transactions": [],
-            #"consents": ConsentHistory(),
         })
         super(Block, self).__init__(*args, **kwargs)
+
+    def hash(self):
+        """
+        Generate the hash representation of the contents of this block.
+        """
+        # ensure that the Dictionary is Ordered, or hashes will become inconsistent
+        block_hash = json.dumps(self.json(), sort_keys=True).encode()
+        return block_hash
 
 
 class Blockchain(Base):
@@ -251,6 +334,12 @@ class Blockchain(Base):
         self.current_transactions = []
         self["blocks"] = chain or []
         self.setdefault("updated", datetime.datetime.utcnow())
+        self.setdefault("states", AttributeDict({
+            "consent_change_history": [],       # type: List[str]
+            "consent_change_updated": {},       # type: Dict[ConsentAction, Consent]
+            "consent_change_last_id": None,     # type: Optional[uuid.UUID]
+        }))
+        self.states.freeze()  # only history computation can modify with explicit unfreeze
 
         # Create the genesis block
         if not self.blocks:
@@ -408,9 +497,7 @@ class Blockchain(Base):
         """
         Creates a SHA-256 hash of a :class:`Block`.
         """
-
-        # We must make sure that the Dictionary is Ordered, or we'll have inconsistent hashes
-        block_string = json.dumps(block, sort_keys=True).encode()
+        block_string = block.hash()
         return hashlib.sha256(block_string).hexdigest()
 
     def proof_of_work(self, last_block):

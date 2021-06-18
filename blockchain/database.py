@@ -149,7 +149,7 @@ class FileSystemDatabase(Database):
         block_path = os.path.join(store_path, f"{block_id!s}.json")
         with open(block_path) as block_file:
             block = json.load(block_file)
-        return Block(block)
+        return Block(**block)
 
     def save_multi_chain(self, multi_chain):
         # type: (MultiChain) -> None

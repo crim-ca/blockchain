@@ -1,3 +1,4 @@
+import os
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
@@ -5,6 +6,7 @@ from apispec import APISpec
 from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import Flask, Response, json, jsonify, request
 from flask_apispec import FlaskApiSpec, doc, marshal_with, use_kwargs
+from flask_mako import MakoTemplates
 from werkzeug.exceptions import HTTPException
 
 from blockchain import __meta__, __title__
@@ -12,6 +14,7 @@ from blockchain.api import schemas
 from blockchain.api.block import BLOCK
 from blockchain.api.chain import CHAIN
 from blockchain.api.nodes import NODES
+from blockchain.ui.views import VIEWS
 
 if TYPE_CHECKING:
     from typing import List
@@ -48,6 +51,7 @@ def handle_exception(e):
 
 
 @APP.route("/", methods=["GET"])
+@doc(description="Details of this blockchain node.", tags=["API"])
 @marshal_with(schemas.Frontpage, 200, description="Landing page of the Blockchain Node API.")
 def frontpage():
     """
@@ -68,6 +72,7 @@ def frontpage():
 
 
 @APP.route("/schema", methods=["GET"])
+@doc(description="Obtain the OpenAPI schema of supported requests.", tags=["API"])
 @use_kwargs(schemas.FormatQuery, location="query")
 @marshal_with(None, 200, description="OpenAPI schema definition.")
 def openapi_schema(format=None):
@@ -106,5 +111,11 @@ APP.config.update({
 APP.register_blueprint(BLOCK)
 APP.register_blueprint(CHAIN)
 APP.register_blueprint(NODES)
+APP.register_blueprint(VIEWS)
+API_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_DIR = os.path.dirname(API_DIR)
+MakoTemplates(APP)
+APP.template_folder = [APP.template_folder, APP_DIR]
+APP.static_folder = os.path.join(APP_DIR, "ui/static")
 API = FlaskApiSpec(APP, document_options=False)
 API.register_existing_resources()
