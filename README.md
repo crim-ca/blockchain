@@ -86,3 +86,20 @@ Following are the reference resources and source code employed to start developm
 
 - [Original code: dvf/blockchain](https://github.com/dvf/blockchain)
 - [Building a Blockchain blogpost](https://medium.com/p/117428612f46)
+
+
+## Blockchain Contents
+
+The blockchains are intended to contain tracking of *Consent* changes and resolution. 
+Each blockchain UUID (multiple chains per nodes) represent a potential *user* for management their *Consents*.
+
+Following is a visual representation of such *Consents* using UI endpoints.
+
+![blockchain-consents](./docs/blockchain-consents.png "Initial Consents representation in a Blockchain")
+
+
+Similar details can be retrieved from the API endpoints, as well as further operations on the blockchains and nodes
+their should process consensus resolution against.
+
+The *Consents* are generated with a set of demonstration *Actions*, which can be extended as needed by modifying the
+`ConsentsAction` enumeration.

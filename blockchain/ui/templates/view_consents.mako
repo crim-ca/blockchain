@@ -9,7 +9,7 @@
                 <table>
                     <thead>
                         <tr>
-                        %for field in ["Permission", "Consent", "Created", "Expire"]:
+                        %for field in ["Action", "Consent", "Created", "Expire"]:
                             <th>${field}</th>
                         %endfor
                         </tr>
