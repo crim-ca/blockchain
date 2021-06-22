@@ -38,14 +38,20 @@ APP.config["JSON_SORT_KEYS"] = False
 
 
 @APP.errorhandler(HTTPException)
-def handle_exception(e):
+def handle_exception(error):
+    # type: (HTTPException) -> Response
     """Return JSON instead of HTML for HTTP errors."""
-    response = e.get_response()
-    response.data = json.dumps({
-        "code": e.code,
-        "name": e.name,
-        "description": e.description,
-    })
+    response = error.get_response()
+    data = {
+        "code": error.code,
+        "name": error.name,
+        "description": error.description,
+    }
+    exception = getattr(error, "exc", None)
+    messages = getattr(exception, "messages", None)
+    if messages:
+        data["messages"] = messages
+    response.data = json.dumps(data)
     response.content_type = "application/json"
     return response
 
@@ -115,7 +121,7 @@ APP.register_blueprint(VIEWS)
 API_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.dirname(API_DIR)
 MakoTemplates(APP)
-APP.template_folder = [APP.template_folder, APP_DIR]
+APP.template_folder = APP_DIR
 APP.static_folder = os.path.join(APP_DIR, "ui/static")
 API = FlaskApiSpec(APP, document_options=False)
 API.register_existing_resources()

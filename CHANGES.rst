@@ -7,7 +7,13 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Add ``Consent`` updates, reporting and resolution against new blocks added to the blockchain.
+* Add schema validation error ``messages`` to returned response for contextual details of the cause of failing request.
+* Fix issue when resolving remote node IDs using ``detail`` query parameter.
+* Fix blockchain creation during the initial resolution to avoid different genesis blocks, resulting in following
+  blocks to compute different previous-hash, in turn resulting into diverging blockchains.
+* Fix block instantiation using predefined ``created`` value to avoid regeneration with current datetime.
+* Fix issue related to incorrect inheritance of fields when resolving JSON representation of ``AttributeDict``.
 
 `0.4.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.4.0>`_ (2021-06-18)
 ---------------------------------------------------------------------------------------------------------------
@@ -28,7 +34,7 @@ Features / Changes
 * Update the API and database implementation to support multiple parallel blockchains.
 * Improve resolution mechanism to allow initial consensus to generate the chain when it doesn't exist on current node
   using another node reference.
-* Partial implementation of `Consent` related objects, but not yet applied to the blockchain.
+* Partial implementation of ``Consent`` related objects, but not yet applied to the blockchain.
 
 Bug Fixes
 ~~~~~~~~~~~~~~~~~~~~~
