@@ -7,7 +7,6 @@ from urllib.parse import urljoin
 
 from blockchain.api.block import BLOCK_REF, get_block
 from blockchain.api.chain import CHAIN_ID, get_chain, get_chain_links, view_consents
-from blockchain.impl import ConsentChange
 from blockchain.utils import get_links
 
 if TYPE_CHECKING:
@@ -38,7 +37,7 @@ def get_chain_shortcuts(chain_id):
 def shortcut_navigate():
     links = get_links(VIEWS, self=False)
     for link in links:
-        link["name"] = link["rel"].replace("_", " ").capitalize()
+        link["title"] = link["rel"].replace("_", " ").capitalize()
     data = {"links": links}
     return Response(render_template("ui/templates/view_shortcuts.mako", **data))
 
@@ -62,7 +61,7 @@ def view_chains():
     return Response(render_template("ui/templates/view_chains.mako", **data))
 
 
-@VIEWS.route(f"/chains/{CHAIN_ID}/blocks/${BLOCK_REF}", methods=["GET"])
+@VIEWS.route(f"/chains/{CHAIN_ID}/blocks/{BLOCK_REF}", methods=["GET"])
 @doc("Display block details within a blockchain.", tags=["Blocks", "UI"])
 def view_block(chain_id, block_ref):
     chain = get_chain(chain_id)
