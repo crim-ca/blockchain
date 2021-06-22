@@ -8,14 +8,17 @@ from flask import current_app as APP  # noqa
 from flask_apispec import doc, marshal_with, use_kwargs
 
 from blockchain.api import schemas
-from blockchain.impl import Blockchain, ConsentChange
+from blockchain.impl import AttributeDict, Blockchain, ConsentChange
+from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
     from typing import List, Optional, Tuple, Union
 
     from blockchain import AnyRef, AnyUUID, Link
-    from blockchain.impl import Block
+    from blockchain.impl import Block, Node
 
+
+LOGGER = get_logger(__name__)
 
 CHAIN = Blueprint("chain", __name__, url_prefix="/chains")
 CHAIN_ID = "<uuid:chain_id>"
@@ -72,7 +75,7 @@ def get_chain_links(chain_id):
     """
     chain_id = str(chain_id)
     links = [
-        {"rel": "self", "href": url_for("chain.view_chain", chain_id=chain_id)},
+        {"rel": "self", "href": url_for("chain.view_chain", chain_id=chain_id)},  # first position important
         # {"rel": "transaction", "href": url_for("chain.new_transaction", chain_id=chain_id)},  # only POST
         {"rel": "mine", "href": url_for("chain.mine", chain_id=chain_id)},
         {"rel": "blocks", "href": url_for("chain.list_blocks", chain_id=chain_id)},
@@ -85,6 +88,24 @@ def get_chain_links(chain_id):
     return links
 
 
+def check_blockchain_exists(node, chain_id):
+    # type: (Node, AnyUUID) -> bool
+    """
+    Verifies if a blockchain reference can be found on a remote node.
+
+    If the reference can be found, the blockchain is initiated for
+    """
+    try:
+        resp = requests.get(f"{node.url}/chains/{chain_id}", timeout=2)
+    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        LOGGER.info("Node [%s] does not know blockchain [%s] for initial creation.", node, chain_id)
+        return False
+    if resp.status_code == 200:
+        LOGGER.info("Node [%s] knows blockchain [%s] for initial creation.", node, chain_id)
+        return True
+    return False
+
+
 @CHAIN.route("/", methods=["GET"])
 @doc(description="Obtain list of available blockchains on this node.", tags=["Chains"])
 def list_chains():
@@ -92,8 +113,37 @@ def list_chains():
     return jsonify({"chains": chains, "total": len(chains)})
 
 
+@CHAIN.route(f"/{CHAIN_ID}", methods=["GET"])
+@doc(description="Obtain the list of blocks that constitute a blockchain.", tags=["Chains"])
+def view_chain(chain_id):
+    chain = get_chain(chain_id)
+    response = {
+        "chain": chain.json(detail=False),
+        "length": len(chain.blocks),
+        "links": get_chain_links(chain_id)
+    }
+    return jsonify(response)
+
+
+@CHAIN.route(f"/{CHAIN_ID}/blocks", methods=["GET"])
+@doc(description="Obtain full details of blocks that constitute a blockchain.", tags=["Chains", "Blocks"])
+def list_blocks(chain_id):
+    chain = get_chain(chain_id)
+    data = AttributeDict({"blocks": list(chain.blocks), "length": len(chain.blocks)})
+    return jsonify(data.json())
+
+
+@CHAIN.route(f"/{CHAIN_ID}/blocks/{BLOCK_REF}", methods=["GET"])
+@doc(description="Obtain the details of a specific block within a blockchain.", tags=["Chains", "Blocks"])
+def chain_block(chain_id, block_ref):
+    chain = get_chain(chain_id)
+    block = get_block(block_ref, chain)
+    data = AttributeDict({"chain": chain.id, "block": block})
+    return jsonify(data.json())
+
+
 @CHAIN.route(f"/{CHAIN_ID}/mine", methods=["GET"])
-@doc(description="Mine a blockchain to generate a new transaction block.", tags=["Chains"])
+@doc(description="Mine a blockchain to generate a new block.", tags=["Chains"])
 def mine(chain_id):
     # We run the proof of work algorithm to get the next proof...
     blockchain = get_chain(chain_id)
@@ -111,15 +161,16 @@ def mine(chain_id):
     # Forge the new Block by adding it to the chain
     previous_hash = blockchain.hash(last_block)
     block = blockchain.new_block(proof, previous_hash)
+    APP.db.save_chain(blockchain)
 
-    response = {
+    data = AttributeDict({
         "message": "New Block Forged",
         "index": block["index"],
         "transactions": block["transactions"],
         "proof": block["proof"],
         "previous_hash": block["previous_hash"],
-    }
-    return jsonify(response)
+    })
+    return jsonify(data.json())
 
 
 @CHAIN.route(f"/{CHAIN_ID}/transactions", methods=["POST"])
@@ -141,49 +192,60 @@ def new_transaction(chain_id):
     return response
 
 
-@CHAIN.route(f"/{CHAIN_ID}", methods=["GET"])
-@doc(description="Obtain the list of blocks that constitute a blockchain.", tags=["Chains"])
-def view_chain(chain_id):
-    chain = get_chain(chain_id)
-    response = {
-        "chain": chain.json(detail=False),
-        "length": len(chain.blocks),
-        "links": get_chain_links(chain_id)
-    }
-    return jsonify(response)
-
-
-@CHAIN.route(f"/{CHAIN_ID}/blocks", methods=["GET"])
-@doc(description="Obtain full details of blocks that constitute a blockchain.", tags=["Chains", "Blocks"])
-def list_blocks(chain_id):
-    chain = get_chain(chain_id)
-    return jsonify({"blocks": list(chain.blocks), "length": len(chain.blocks)})
-
-
-@CHAIN.route(f"/{CHAIN_ID}/blocks/{BLOCK_REF}", methods=["GET"])
-@doc(description="Obtain the details of a specific block within a blockchain.", tags=["Chains", "Blocks"])
-def chain_block(chain_id, block_ref):
-    chain = get_chain(chain_id)
-    block = get_block(block_ref, chain)
-    return jsonify({"chain": chain.id, "block": block})
-
-
 @CHAIN.route(f"/{CHAIN_ID}/consents", methods=["GET"])
 @doc("Obtain consents status of a given blockchain.", tags=["Chains", "Consents"])
 def view_consents(chain_id):
     chain = get_chain(chain_id)
     history = ConsentChange.history(chain)
     consents = [consent.json() for consent in ConsentChange.latest(chain)]
-    data = {"consents": consents, "updated": chain.last_block.created, "changes": history}
-    return jsonify(data)
+    outdated = chain.verify_outdated(APP.nodes)
+    message = "Consents history resolved and validated against all other nodes."
+    if outdated is None:
+        message = "Consents history resolved but could not be validated against other nodes."
+    elif outdated:
+        message = "Consents history resolved but is missing updates from other nodes."
+    data = AttributeDict({
+        "message": message,
+        "updated": chain.last_block.created,
+        "outdated": outdated if isinstance(outdated, bool) else False,
+        "verified": outdated is not None,
+        "changes": history,
+        "consents": consents,
+    })
+    return jsonify(data.json())
 
 
 @CHAIN.route(f"/{CHAIN_ID}/consents", methods=["POST"])
-@doc(description="Resolve a blockchain with other registered nodes with consensus.", tags=["Chains", "Nodes"])
+@doc(description="Create a new consent change to be registered on the blockchain.", tags=["Chains", "Consents"])
 @use_kwargs(schemas.ConsentBody, location="json")
-def update_consent(chain_id, data):
-    chain = get_chain(chain_id)
+def update_consent(chain_id, action, consent, expire=None):
+    # run the proof of work algorithm to get the next proof
+    blockchain = get_chain(chain_id)
+    last_block = blockchain.last_block
+    proof = blockchain.proof_of_work(last_block)
 
+    # receive a reward for finding the proof.
+    # The sender is "0" to signify that this node has mined a new coin.
+    blockchain.new_consent(
+        action=action,
+        expire=expire,
+        consent=consent,
+    )
+
+    # Forge the new Block by adding it to the chain
+    previous_hash = blockchain.hash(last_block)
+    block = blockchain.new_block(proof, previous_hash)
+    APP.db.save_chain(blockchain)
+
+    response = AttributeDict({
+        "message": "New Block Forged",
+        "index": block["index"],
+        "transactions": block["transactions"],
+        "consents": block["consents"],
+        "proof": block["proof"],
+        "previous_hash": block["previous_hash"],
+    })
+    return jsonify(response.json())
 
 
 # FIXME: apply schema validation to fix invalid values
@@ -202,15 +264,12 @@ def consensus(chain_id):
         if not APP.nodes:
             abort(404, f"Blockchain [{chain_id!s}] not found and cannot be resolved (no blockchain nodes available).")
         for node in APP.nodes:
-            try:
-                resp = requests.get(f"{node.url}/chains/{chain_id}", timeout=2)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-                continue
-            if resp.status_code == 200:
-                blockchain = Blockchain(id=chain_id)  # setup, resolve conflicts will follow
+            if check_blockchain_exists(node, chain_id):
+                # setup blockchain, but resolve conflicts with consensus instead of initialization
+                blockchain = Blockchain(id=chain_id, genesis_block=False)
                 generated = True
                 break
-        if not blockchain:
+        if blockchain is None:
             abort(404, f"Blockchain [{chain_id!s}] not found and cannot be resolved from other blockchain nodes.")
 
     replaced, validated = blockchain.resolve_conflicts(APP.nodes)
@@ -221,9 +280,14 @@ def consensus(chain_id):
         message = "Blockchain was replaced with resolved conflicts."
     else:
         message = "Blockchain is authoritative."
-    data = {"description": message, "updated": blockchain.updated,
-            "resolved": generated or replaced, "validated": validated,
-            "chain": blockchain.chain}
+    data = AttributeDict({
+        "description": message,
+        "updated": blockchain.updated,
+        "resolved": generated or replaced,
+        "validated": bool(len(validated)),
+        "nodes": [node.id for node in validated],
+        "chain": blockchain.chain
+    })
     code = 201 if generated else 200
     APP.db.save_chain(blockchain)
-    return data, code
+    return data.json(), code

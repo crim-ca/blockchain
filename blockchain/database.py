@@ -175,8 +175,6 @@ class FileSystemDatabase(Database):
             json.dump(chain.json(), chain_file)
         for block in chain.blocks:
             self.save_block(block, chain_id=chain.id)
-        if not self.stored:
-            self.path = chain_path
 
     def save_block(self, block, chain_id=None):
         # type: (Block, Optional[AnyUUID]) -> None

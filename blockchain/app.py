@@ -7,7 +7,9 @@ from urllib.parse import urlparse
 from blockchain.api import APP
 from blockchain.database import DB_TYPES
 from blockchain.impl import Blockchain, Node
-from blockchain.utils import get_logger
+from blockchain.utils import get_logger, set_logger_config
+
+LOGGER = get_logger("blockchain")
 
 
 class DatabaseTypeAction(argparse.Action):
@@ -54,7 +56,7 @@ def main():
 
     # set full module config
     level = logging.DEBUG if args.debug else logging.ERROR if args.quiet else logging.ERROR
-    logger = get_logger("blockchain", level=level, force_stdout=args.verbose, file=args.log)
+    logger = set_logger_config(LOGGER, level=level, force_stdout=args.verbose, file=args.log)
     if level == logging.DEBUG:
         APP.debug = True
 

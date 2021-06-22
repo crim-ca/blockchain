@@ -2,14 +2,23 @@
     <%include file="header.mako"/>
     <body>
         <div class="consents">
-            <div class="consents-updated">
-                Updated: ${updated}
+            <div class="consents-status">
+                <table>
+                    <thead>
+                        <tr><th colspan="2">Statuses</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Updated:</td>   <td>${updated}</td></tr>
+                        <tr><td>Outdated:</td>  <td>${outdated}</td></tr>
+                        <tr><td>Verified:</td>  <td>${verified}</td></tr>
+                    </tbody>
+                </table>
             </div>
             <div class="consents-latest">
                 <table>
                     <thead>
                         <tr>
-                        %for field in ["Action", "Consent", "Created", "Expire"]:
+                        %for field in ["Action", "Consent", "Type", "Created", "Expire"]:
                             <th>${field}</th>
                         %endfor
                         </tr>
@@ -17,8 +26,14 @@
                     <tbody>
                     %for consent in consents:
                         <tr>
-                        %for field in ["action", "consent", "created", "expire"]:
-                            <td>${consent[field]}</td>
+                        %for field in ["action", "consent", "type", "created", "expire"]:
+                            <td>
+                                %if field == "type":
+                                    ${consent[field].capitalize()}
+                                %else:
+                                    ${consent[field]}
+                                %endif
+                            </td>
                         %endfor
                         </tr>
                     %endfor
