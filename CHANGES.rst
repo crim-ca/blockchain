@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.5.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.5.0>`_ (2021-06-21)
+---------------------------------------------------------------------------------------------------------------
+
 * Add ``Consent`` updates, reporting and resolution against new blocks added to the blockchain.
 * Add schema validation error ``messages`` to returned response for contextual details of the cause of failing request.
 * Fix issue when resolving remote node IDs using ``detail`` query parameter.
