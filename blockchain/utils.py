@@ -28,19 +28,21 @@ def get_logger(name, level=None, force_stdout=None, message_format=None, datetim
         # use log level if it was specified via ini config with logger sections, or the package level
         parent_module = os.path.split(os.path.dirname(__file__))[-1]
         level = level or logging.getLogger(parent_module).getEffectiveLevel() or logging.INFO
-        logger.setLevel(level)
     if force_stdout or message_format or datetime_format or file:
-        set_logger_config(logger, force_stdout, message_format, datetime_format, file)
+        set_logger_config(logger, level, force_stdout, message_format, datetime_format, file)
     return logger
 
 
-def set_logger_config(logger, force_stdout=False, message_format=None, datetime_format=None, file=None):
-    # type: (logging.Logger, bool, Optional[str], Optional[str], Optional[str]) -> logging.Logger
+def set_logger_config(logger, level=None, force_stdout=False, message_format=None, datetime_format=None, file=None):
+    # type: (logging.Logger, Optional[int], bool, Optional[str], Optional[str], Optional[str]) -> logging.Logger
     """
     Applies the provided logging configuration settings to the logger.
     """
     if not logger:
         return logger
+    if not level:
+        level = logging.INFO
+    logger.setLevel(level)
     handler = None
     if force_stdout:
         all_handlers = logging.root.handlers + logger.handlers
