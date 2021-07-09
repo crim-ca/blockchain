@@ -7,7 +7,8 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Add body top-menu table to render current node ID on each UI page.
+* Fix incorrect rendering of UI shortcut link titles.
 
 `0.5.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.5.0>`_ (2021-06-21)
 ---------------------------------------------------------------------------------------------------------------
