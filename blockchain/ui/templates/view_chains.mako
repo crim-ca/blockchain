@@ -1,6 +1,7 @@
 <html lang="en">
     <%include file="header.mako"/>
     <body>
+        <%include file="body_menu.mako"/>
         <div class="chains">
             %if chains:
             <table class="chain-list">

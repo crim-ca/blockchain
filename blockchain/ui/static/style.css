@@ -20,6 +20,10 @@ table td  {
     padding: 0.25em;
 }
 
+.body-menu {
+    margin-bottom: 1em;
+}
+
 .consents > div {
     margin-top: 1em;
     margin-bottom: 1em;
