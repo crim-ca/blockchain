@@ -1,6 +1,10 @@
 <html lang="en">
     <%include file="header.mako"/>
     <body>
-        <div></div>
+        <%include file="body_menu.mako"/>
+        <div>
+
+
+        </div>
     </body>
 </html>
