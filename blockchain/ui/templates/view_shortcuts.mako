@@ -1,6 +1,7 @@
 <html lang="en">
     <%include file="header.mako"/>
     <body>
+        <%include file="body_menu.mako"/>
         <div class="shortcut-links">
             <table>
                 <thead>
@@ -12,7 +13,7 @@
                 <tbody>
                     %for link in links:
                         <tr>
-                            <td>${link['name']}</td>
+                            <td>${link['title']}</td>
                             <td><a href="${link['href']}">${link['href']}</a></td>
                         </tr>
                     %endfor
