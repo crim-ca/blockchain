@@ -1,10 +1,16 @@
 <div class="body-menu">
     <table>
         <thead>
-            <tr><th>Node</th></tr>
+            <tr>
+                <th>Current Node</th>
+                <th>Endpoint</th>
+            </tr>
         </thead>
         <tbody>
-            <tr><td>${node_id}</td></tr>
+            <tr>
+                <td class="uuid">${node_id}</td>
+                <td><a href="${node_url}">${node_url}</a></td>
+            </tr>
         </tbody>
     </table>
 </div>
