@@ -211,7 +211,7 @@ class ConsentChange(WithDatetime):
             cls.history(chain)  # resolve it
         consents = chain.states.consent_change_updated
         undefined = [Consent(action, False) for action in ConsentAction if action not in consents]
-        resolved = list(sorted(list(consents.values()) + undefined, key=lambda c: c.created))
+        resolved = list(sorted(list(consents.values()) + undefined, key=lambda c: c.action.value))
         for consent in resolved:
             if consent.expire and datetime.utcnow() > consent.expire:
                 consent.type = ConsentType.EXPIRED
@@ -297,8 +297,12 @@ class Node(Base):
     def url(self):
         return self["url"]
 
+    @property
+    def resolved(self):
+        return self.id is not None  # attempts inline resolve
+
     def json(self, **__):
-        _id = self.id  # inplace resolve as needed if it becomes available
+        _id = self.id  # inline resolve as needed if it becomes available
         return {"id": _id, "url": self.url, "resolved": _id is not None}
 
     def _fix_url(self, endpoint):

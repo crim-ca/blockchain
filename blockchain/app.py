@@ -63,7 +63,7 @@ def main():
     try:
         host = "0.0.0.0"
         port = args.port
-        APP.url = f"{host}:{port}"
+        APP.url = f"http://{host}:{port}"
         APP.db = args.db
 
         if args.new:

@@ -7,7 +7,7 @@
             <table class="chain-list">
                 <thead>
                     <tr>
-                        <th rowspan="2">Chain</th>
+                        <th rowspan="2">Chains</th>
                         <th colspan="${len(chains[0]["shortcuts"])}">
                             Shortcuts
                         </th>
@@ -26,7 +26,7 @@
                 <tbody>
                     %for chain_info in chains:
                     <tr>
-                        <td>${chain_info["id"]}</td>
+                        <td class="uuid">${chain_info["id"]}</td>
                         %for link_type in ["shortcuts", "links"]:
                             %for chain_link in chain_info[link_type]:
                                 <td>

@@ -5,7 +5,13 @@ body {
 
 table {
     border-collapse: collapse;
+    margin-bottom: 1em;
+    margin-top: 1em;
     text-align: left;
+}
+
+th[rowspan] {
+    vertical-align: center;
 }
 
 table th {
@@ -57,3 +63,11 @@ table td  {
     color: #B8860B;
 }
 
+.uuid {
+    font-family: "Lucida Console", "Courier New", monospace;
+}
+
+a,
+a:visited {
+    color: blue;
+}
