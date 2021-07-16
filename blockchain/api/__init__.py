@@ -68,6 +68,7 @@ def frontpage():
         "node": APP.node,
         "links": [
             {"rel": "api", "href": urljoin(request.url, "/api")},
+            {"rel": "ui", "href": urljoin(request.url, "/ui")},
             {"rel": "json", "href": urljoin(request.url, "/schema")},
             {"rel": "yaml", "href": urljoin(request.url, "/schema?f=yaml")},
             {"rel": "nodes", "href": urljoin(request.url, "/nodes")},
