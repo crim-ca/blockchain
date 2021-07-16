@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.7.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.7.0>`_ (2021-07-16)
+---------------------------------------------------------------------------------------------------------------
+
 * Add listing of known remote network nodes in UI summary page.
 * Add ``http`` scheme to current node URL location returned in responses.
 * Add ``ui`` URL link in node entrypoint response.
