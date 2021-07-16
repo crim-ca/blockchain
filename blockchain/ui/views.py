@@ -19,6 +19,7 @@ VIEWS = Blueprint("ui", __name__, url_prefix="/ui")
 
 def render_template_meta(template, **data):
     data["node_id"] = APP.node
+    data["node_url"] = APP.url
     return render_template(template, **data)
 
 
@@ -43,7 +44,7 @@ def shortcut_navigate():
     links = get_links(VIEWS, self=False)
     for link in links:
         link["title"] = link["rel"].replace("_", " ").capitalize()
-    data = {"links": links}
+    data = {"links": links, "nodes": APP.nodes}
     return Response(render_template_meta("ui/templates/view_shortcuts.mako", **data))
 
 
