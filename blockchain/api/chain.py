@@ -108,9 +108,38 @@ def check_blockchain_exists(node, chain_id):
 
 @CHAIN.route("/", methods=["GET"])
 @doc(description="Obtain list of available blockchains on this node.", tags=["Chains"])
-def list_chains():
+@use_kwargs(schemas.ResolveQuery, location="query")
+def list_chains(resolve=False):
+    chains = set(APP.blockchains)
+    str_chains = {str(chain) for chain in chains}
+    new_chains = set()
+
+    resolved_nodes = 0
+    if resolve:
+        LOGGER.info("Resolving missing chains with remote nodes...")
+        for node in APP.nodes:
+            if node.resolved:
+                resolved_nodes += 1
+                try:
+                    resp = requests.get(f"{node.url}/chains?resolve=false", timeout=2)
+                    node_chains = set(resp.json()["chains"])
+                    new_chains |= node_chains - str_chains
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                    LOGGER.info("Node [%s] did not answer to provide blockchains for initial creation.", node)
+                    continue
+        LOGGER.info("Found %s missing chains", len(new_chains))
+        for chain in new_chains:
+            consensus(chain_id=chain)
+
     chains = list(APP.blockchains)
-    return jsonify({"chains": chains, "total": len(chains)})
+    data = {
+        "chains": chains,
+        "total": len(chains),
+        "resolved_query": resolve,
+        "resolved_nodes": resolved_nodes,
+        "resolved_chains": len(new_chains),
+    }
+    return jsonify(data)
 
 
 @CHAIN.route(f"/{CHAIN_ID}", methods=["GET"])
@@ -127,9 +156,11 @@ def view_chain(chain_id):
 
 @CHAIN.route(f"/{CHAIN_ID}/blocks", methods=["GET"])
 @doc(description="Obtain full details of blocks that constitute a blockchain.", tags=["Chains", "Blocks"])
-def list_blocks(chain_id):
+@use_kwargs(schemas.DetailQuery, location="query")
+def list_blocks(chain_id, detail=False):
     chain = get_chain(chain_id)
-    data = AttributeDict({"blocks": list(chain.blocks), "length": len(chain.blocks)})
+    blocks = list(chain.blocks) if detail else [block.id for block in chain.blocks]
+    data = AttributeDict({"blocks": blocks, "length": len(blocks)})
     return jsonify(data.json())
 
 
