@@ -369,6 +369,7 @@ class Blockchain(Base):
         super(Blockchain, self).__init__(*_, **__)
         self.pending_transactions = []
         self.pending_consents = []
+        LOGGER.warning("CHAIN: %s", chain)
         self["blocks"] = [
             block if isinstance(block, Block) else Block(**block)
             for block in chain or []
@@ -473,7 +474,7 @@ class Blockchain(Base):
         # Grab and verify the chains from all the nodes in our network
         for node in nodes:
             try:
-                response = requests.get(f"{node.url}/chains/{self.id!s}/blocks", timeout=2)
+                response = requests.get(f"{node.url}/chains/{self.id!s}/blocks?detail=true", timeout=2)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 LOGGER.warning("Node [%s] is unresponsive for conflict resolution. Skipping it.", node.url)
                 continue
