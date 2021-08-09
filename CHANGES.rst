@@ -7,7 +7,15 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Change ``GET /chains/{CHAIN_ID}/blocks`` endpoint to return by default a list of Block IDs instead of their expanded
+  definition. Query parameter ``detail=true`` can be provided to return the expanded definitions of the blocks.
+* Add ``resolve=true|false`` (default ``false``) query parameter to ``GET /chains`` to allow initial creation of
+  all missing Blockchain definitions on a server node using retrieved definitions from remote nodes in the network.
+  This is equivalent to calling initial consensus resolution (blockchain generated) for all missing ID of other
+  nodes ``GET /chains/{CHAIN_ID}/resolve`` responses.
+* Add performance test for evaluation purpose (CLI with repeated request calls and timing summary statistics).
+* Add ``app.run`` function to allow execution of the Web Application through WSGI runner such as ``gunicorn``.
+* Change parsing of command line arguments to support both direct Web Application call and through WSGI runner.
 
 `0.7.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.7.0>`_ (2021-07-16)
 ---------------------------------------------------------------------------------------------------------------
