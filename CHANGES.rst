@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.8.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.8.0>`_ (2021-08-09)
+---------------------------------------------------------------------------------------------------------------
+
 * Change ``GET /chains/{CHAIN_ID}/blocks`` endpoint to return by default a list of Block IDs instead of their expanded
   definition. Query parameter ``detail=true`` can be provided to return the expanded definitions of the blocks.
 * Add ``resolve=true|false`` (default ``false``) query parameter to ``GET /chains`` to allow initial creation of
