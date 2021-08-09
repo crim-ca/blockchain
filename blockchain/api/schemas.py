@@ -50,6 +50,19 @@ class SyncQuery(Schema):
     )
 
 
+class ResolveQuery(Schema):
+    """
+    Force consensus resolution with external node references.
+    """
+    resolve = fields.Boolean(
+        required=False,
+        allow_none=True,
+        default=False,
+        attribute="resolve",
+        description=__doc__.strip()
+    )
+
+
 class Frontpage(Schema):
     description = fields.Str()
     node = fields.UUID()
