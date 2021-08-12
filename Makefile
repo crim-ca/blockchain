@@ -11,13 +11,11 @@ APP_NAME    := blockchain
 APP_VERSION := 0.8.0
 APP_DB_DIR  ?= /tmp/blockchain
 APP_PORT    ?= 5000
-APP_NODES   ?= localhost:5001,localhost:5002
-APP_LOG_LVL ?= info
-APP_WORKERS ?= 4
 
 # guess OS (Linux, Darwin,...)
-OS_NAME := $(shell uname -s 2>/dev/null || echo "unknown")
+OS_NAME  := $(shell uname -s 2>/dev/null || echo "unknown")
 CPU_ARCH := $(shell uname -m 2>/dev/null || uname -p 2>/dev/null || echo "unknown")
+SHELL    := bash
 
 # conda
 CONDA_ENV_NAME ?= $(APP_NAME)
@@ -307,15 +305,6 @@ start-app: stop		## start application instance with single worker
 	@bash -c '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py" --port $(APP_PORT) --db "$(APP_DB_DIR)" &'
 	@sleep 5
 	@curl -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)" | grep '"code": 200'
-
-.PHONY: start-node
-start-node: stop        ## start server node with Gunicorn using multiple workers
-	@echo "Starting $(APP_NAME)..."
-	@test -d "$(APP_DB_DIR)" && cd "$(APP_ROOT)" && '$(CONDA_CMD) \
-		gunicorn "blockchain.app:run(\
-			host='$(APP_HOST)', port=$(APP_PORT), db='file://$(APP_DB_DIR)', \
-			nodes='$(APP_NODES)', level='$(APP_LOG_LVL)')" \
-			--bind 0.0.0.0:$(APP_PORT) --workers $(APP_WORKERS) &'
 
 .PHONY: stop
 stop: 		## kill application instance(s) started with gunicorn
