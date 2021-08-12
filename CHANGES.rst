@@ -7,7 +7,8 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Add ``start-node`` target to ``Makefile`` to provide sample execution method using multiple ``gunicorn`` workers.
+* Fix breaking changes in ``flask`` and ``apispec`` major versions not pinned by ``flask-apispec``. 
 
 `0.8.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.8.0>`_ (2021-08-09)
 ---------------------------------------------------------------------------------------------------------------
