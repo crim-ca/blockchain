@@ -48,8 +48,11 @@ gunicorn \
   --workers 4
 ```
 
-The parameters normal provide as CLI options must be passed directly to the ``run`` function since 
-the ``gunicorn`` WSGI runner does not allow additional parameters as input (options are specific to ``gunicorn``).
+The parameters normally provided as CLI options when calling ``python`` must be passed directly to the ``run`` function 
+when using ``gunicorn`` WSGI runner since it does not allow additional parameters as input 
+(options are specific to ``gunicorn``). The ``--bind`` parameter should use ``0.0.0.0`` to ensure proper reception of
+requests from any endpoints, regardless of the exposed IP by the server. This will allow connecting to the web 
+application both locally (``localhost``) and remotely (exposed URL of the server hosting this service node).   
 
 5. Once started, refer to the following endpoints for OpenAPI requests and details:
 
