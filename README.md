@@ -31,7 +31,28 @@ python blockchain/app.py -p 5001 --db file://<custom-directory>  # loads all "<b
 python blockchain/app.py -p 5002 --db file://<custom-directory>/<id>/chain.json  # loads only that blockchain
 python blockchain/app.py -p 5003 --db file://<custom-directory>/chains.txt  # loads only listed blockchains IDs
 python blockchain/app.py --port 5004 --db <db-impl>://<db-connector>  # use an alternate database implementation
- ```
+```
+
+When running server nodes, any predefined set of nodes within a shared network should be provided directly 
+with the ``--nodes='<node1-url>,<node2-url>,...'`` option to allow consensus resolution between nodes.
+Otherwise, nodes can be registered after startup using the relevant API endpoints.
+
+Alternatively to above calling method of the web application that starts a single listener (useful for debugging), 
+running using ``gunicorn`` is better for servers to employ multi-worker nodes that allow answering to more requests 
+in parallel:
+
+```shell
+gunicorn \
+  "blockchain.app:run(port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" \
+  --bind 0.0.0.0:5001 \
+  --workers 4
+```
+
+The parameters normally provided as CLI options when calling ``python`` must be passed directly to the ``run`` function 
+when using ``gunicorn`` WSGI runner since it does not allow additional parameters as input 
+(options are specific to ``gunicorn``). The ``--bind`` parameter should use ``0.0.0.0`` to ensure proper reception of
+requests from any endpoints, regardless of the exposed IP by the server. This will allow connecting to the web 
+application both locally (``localhost``) and remotely (exposed URL of the server hosting this service node).   
 
 5. Once started, refer to the following endpoints for OpenAPI requests and details:
 
