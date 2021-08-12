@@ -1,11 +1,12 @@
 addict
-apispec
+apispec>=4,<5
 # flasgger
-flask
-flask_apispec
+flask<2
+flask_apispec==0.11
 flask_mako
 # flask_restx
 marshmallow
 python-dateutil
 requests
 webargs
+
