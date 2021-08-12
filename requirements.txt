@@ -4,6 +4,7 @@ apispec>=4,<5
 flask<2
 flask_apispec==0.11
 flask_mako
+gunicorn
 # flask_restx
 marshmallow
 python-dateutil
