@@ -10,11 +10,12 @@ APP_ROOT    := $(abspath $(lastword $(MAKEFILE_NAME))/..)
 APP_NAME    := blockchain
 APP_VERSION := 0.8.0
 APP_DB_DIR  ?= /tmp/blockchain
-APP_PORT  	?= 5000
+APP_PORT    ?= 5000
 
 # guess OS (Linux, Darwin,...)
-OS_NAME := $(shell uname -s 2>/dev/null || echo "unknown")
+OS_NAME  := $(shell uname -s 2>/dev/null || echo "unknown")
 CPU_ARCH := $(shell uname -m 2>/dev/null || uname -p 2>/dev/null || echo "unknown")
+SHELL    := bash
 
 # conda
 CONDA_ENV_NAME ?= $(APP_NAME)
@@ -298,7 +299,7 @@ install-dev: conda-env	## install package requirements for development and testi
 start: install start-app  ## start application instance with gunicorn after installation of dependencies
 
 .PHONY: start-app
-start-app: stop		## start application instance with gunicorn
+start-app: stop		## start application instance with single worker
 	@echo "Starting $(APP_NAME)..."
 	@test -d "$(APP_DB_DIR)" && '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
 	@bash -c '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py" --port $(APP_PORT) --db "$(APP_DB_DIR)" &'
@@ -595,3 +596,7 @@ conda-env: conda-base	## create conda environment if missing and required
 			echo "Creating conda environment at '$(CONDA_ENV_PATH)'..." && \
 		 	"$(CONDA_HOME)/bin/conda" create -y -n "$(CONDA_ENV_NAME)" python=$(PYTHON_VERSION)) \
 		)
+
+
+# vi: tabstop=4 expandtab shiftwidth=2 softtabstop=2
+
