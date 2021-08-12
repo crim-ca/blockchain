@@ -8,7 +8,7 @@ MAKEFILE_NAME := $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 # Application
 APP_ROOT    := $(abspath $(lastword $(MAKEFILE_NAME))/..)
 APP_NAME    := blockchain
-APP_VERSION := 0.8.0
+APP_VERSION := 0.9.0
 APP_DB_DIR  ?= /tmp/blockchain
 APP_PORT    ?= 5000
 

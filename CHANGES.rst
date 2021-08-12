@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.9.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.9.0>`_ (2021-08-12)
+---------------------------------------------------------------------------------------------------------------
+
 * Add sample execution call to start an application node using multiple ``gunicorn`` workers.
 * Add ``gunicorn`` to requirements.
 * Fix breaking changes in ``flask`` and ``apispec`` major versions not pinned by ``flask-apispec``.
