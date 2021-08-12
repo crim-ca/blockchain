@@ -10,7 +10,10 @@ APP_ROOT    := $(abspath $(lastword $(MAKEFILE_NAME))/..)
 APP_NAME    := blockchain
 APP_VERSION := 0.8.0
 APP_DB_DIR  ?= /tmp/blockchain
-APP_PORT  	?= 5000
+APP_PORT    ?= 5000
+APP_NODES   ?= localhost:5001,localhost:5002
+APP_LOG_LVL ?= info
+APP_WORKERS ?= 4
 
 # guess OS (Linux, Darwin,...)
 OS_NAME := $(shell uname -s 2>/dev/null || echo "unknown")
@@ -298,12 +301,21 @@ install-dev: conda-env	## install package requirements for development and testi
 start: install start-app  ## start application instance with gunicorn after installation of dependencies
 
 .PHONY: start-app
-start-app: stop		## start application instance with gunicorn
+start-app: stop		## start application instance with single worker
 	@echo "Starting $(APP_NAME)..."
 	@test -d "$(APP_DB_DIR)" && '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
 	@bash -c '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py" --port $(APP_PORT) --db "$(APP_DB_DIR)" &'
 	@sleep 5
 	@curl -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)" | grep '"code": 200'
+
+.PHONY: start-node
+start-node: stop        ## start server node with Gunicorn using multiple workers
+	@echo "Starting $(APP_NAME)..."
+	@test -d "$(APP_DB_DIR)" && cd "$(APP_ROOT)" && '$(CONDA_CMD) \
+		gunicorn "blockchain.app:run(\
+			host='$(APP_HOST)', port=$(APP_PORT), db='file://$(APP_DB_DIR)', \
+			nodes='$(APP_NODES)', level='$(APP_LOG_LVL)')" \
+			--bind 0.0.0.0:$(APP_PORT) --workers $(APP_WORKERS) &'
 
 .PHONY: stop
 stop: 		## kill application instance(s) started with gunicorn
@@ -595,3 +607,7 @@ conda-env: conda-base	## create conda environment if missing and required
 			echo "Creating conda environment at '$(CONDA_ENV_PATH)'..." && \
 		 	"$(CONDA_HOME)/bin/conda" create -y -n "$(CONDA_ENV_NAME)" python=$(PYTHON_VERSION)) \
 		)
+
+
+# vi: tabstop=4 expandtab shiftwidth=2 softtabstop=2
+
