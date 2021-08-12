@@ -42,7 +42,10 @@ running using ``gunicorn`` is better for servers to employ multi-worker nodes th
 in parallel:
 
 ```shell
-gunicorn "blockchain.app:run(port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" --bind 0.0.0.0:5001 --workers 4
+gunicorn \
+  "blockchain.app:run(port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" \
+  --bind 0.0.0.0:5001 \
+  --workers 4
 ```
 
 The parameters normal provide as CLI options must be passed directly to the ``run`` function since 
