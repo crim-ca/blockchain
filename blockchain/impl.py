@@ -276,11 +276,12 @@ class ConsentChange(WithDatetime):
 
 
 class Node(Base):
-    def __init__(self, url):
-        self._id = None
+    def __init__(self, url, id=None):
+        self._id = id
         self._fix_url(url)
         super(Node, self).__init__()
-        self.sync_id()
+        if self._id is None:
+            self.sync_id()
 
     def __getitem__(self, item):
         if item == "id":

@@ -18,8 +18,8 @@ VIEWS = Blueprint("ui", __name__, url_prefix="/ui")
 
 
 def render_template_meta(template, **data):
-    data["node_id"] = APP.node
-    data["node_url"] = APP.url
+    data["node_id"] = APP.node.id
+    data["node_url"] = APP.node.url
     return render_template(template, **data)
 
 
