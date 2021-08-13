@@ -43,7 +43,7 @@ in parallel:
 
 ```shell
 gunicorn \
-  "blockchain.app:run(port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" \
+  "blockchain.app:run(host='<public-ip>', port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" \
   --bind 0.0.0.0:5001 \
   --workers 4
 ```

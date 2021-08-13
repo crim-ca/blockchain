@@ -26,8 +26,7 @@ if TYPE_CHECKING:
 class BlockchainWebApp(Flask):
     blockchains = None  # type: MultiChain
     nodes = None        # type: List[Node]  # list instead of set to preserve order
-    node = None         # type: str
-    url = None          # type: str
+    node = None         # type: Node
     db = None           # type: Database
 
 
@@ -65,7 +64,7 @@ def frontpage():
     """
     body = {
         "description": "Blockchain Node",
-        "node": APP.node,
+        "node": APP.node.id,
         "links": [
             {"rel": "api", "href": urljoin(request.url, "/api")},
             {"rel": "ui", "href": urljoin(request.url, "/ui")},

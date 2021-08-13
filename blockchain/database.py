@@ -8,9 +8,9 @@ from blockchain.impl import Block, Blockchain, MultiChain
 from blockchain.utils import get_logger, is_uuid
 
 if TYPE_CHECKING:
-    from typing import Optional, Tuple, Union
+    from typing import Optional, Tuple
 
-    AnyUUID = Union[str, uuid.UUID]
+    from blockchain import AnyUUID
 
 LOGGER = get_logger(__name__)
 

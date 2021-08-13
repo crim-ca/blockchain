@@ -75,12 +75,13 @@ def get_chain_links(chain_id):
     """
     chain_id = str(chain_id)
     links = [
+        # order important as employed for nicer display in UI
         {"rel": "self", "href": url_for("chain.view_chain", chain_id=chain_id)},  # first position important
+        {"rel": "blocks", "href": url_for("chain.list_blocks", chain_id=chain_id)},
+        {"rel": "consents", "href": url_for("chain.view_consents", chain_id=chain_id)},
+        {"rel": "consensus", "href": url_for("chain.consensus", chain_id=chain_id)},
         # {"rel": "transaction", "href": url_for("chain.new_transaction", chain_id=chain_id)},  # only POST
         {"rel": "mine", "href": url_for("chain.mine", chain_id=chain_id)},
-        {"rel": "blocks", "href": url_for("chain.list_blocks", chain_id=chain_id)},
-        {"rel": "consensus", "href": url_for("chain.consensus", chain_id=chain_id)},
-        {"rel": "consents", "href": url_for("chain.view_consents", chain_id=chain_id)},
     ]
     for link in links:
         link["href"] = urljoin(request.url, link["href"])

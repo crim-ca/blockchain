@@ -1,7 +1,8 @@
 <html lang="en">
     <%include file="header.mako"/>
     <body>
-        <%include file="body_menu.mako"/>
+        <%include file="node_info.mako"/>
+        <%include file="chain_info.mako"/>
         <div class="consents">
             <div class="consents-status">
                 <table>
