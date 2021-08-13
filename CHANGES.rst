@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`0.10.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.10.0>`_ (2021-08-12)
+---------------------------------------------------------------------------------------------------------------
+
 * Add UI endpoint and links that allow display of complete list of blocks details and their stored consents.
 * Add typing definitions for ``blockchain.app:run`` command to help understand expected inputs for ``gunicorn`` call.
 * Add metadata rendering about the currently viewed blockchain for both new blocks and previous consents UI pages.
