@@ -7,7 +7,9 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Add typing definitions for ``blockchain.app:run`` command to help understand expected inputs for ``gunicorn`` call.
+* Replace ``APP.node`` with only ``UUID`` of current node by full ``Node`` class that contains both the URL and UUID.
+* Fix override of local node ``host`` value to allow referring to public IP.
 
 `0.9.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.9.0>`_ (2021-08-12)
 ---------------------------------------------------------------------------------------------------------------
