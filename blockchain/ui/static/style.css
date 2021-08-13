@@ -63,6 +63,7 @@ table td  {
     color: #B8860B;
 }
 
+.hash,
 .uuid {
     font-family: "Lucida Console", "Courier New", monospace;
 }
