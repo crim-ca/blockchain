@@ -5,6 +5,7 @@ from flask_mako import render_template
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
+from blockchain import __meta__
 from blockchain.api.chain import CHAIN_ID, get_chain, get_chain_links, view_consents
 from blockchain.utils import get_links
 
@@ -20,6 +21,7 @@ VIEWS = Blueprint("ui", __name__, url_prefix="/ui")
 def render_template_meta(template, **data):
     data["node_id"] = APP.node.id
     data["node_url"] = APP.node.url
+    data["version"] = __meta__["version"]
     return render_template(template, **data)
 
 
