@@ -1,4 +1,5 @@
-addict
+# extension of 'https://github.com/mewwts/addict' with JSON converter
+addict @ https://github.com/fmigneault/addict/archive/json.zip
 apispec>=4,<5
 # flasgger
 flask<2
