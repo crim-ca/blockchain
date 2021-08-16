@@ -7,7 +7,7 @@ Changes
 `Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Fix missing ``detail=true`` parameter for retrieval of remote node blocks during blockchain consensus resolution.
 
 `0.11.1 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.11.1>`_ (2021-08-16)
 ---------------------------------------------------------------------------------------------------------------
