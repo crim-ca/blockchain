@@ -65,6 +65,7 @@ def frontpage():
     body = {
         "description": "Blockchain Node",
         "node": APP.node.id,
+        "version": __meta__["version"],
         "links": [
             {"rel": "api", "href": urljoin(request.url, "/api")},
             {"rel": "ui", "href": urljoin(request.url, "/ui")},
