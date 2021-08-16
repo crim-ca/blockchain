@@ -519,7 +519,7 @@ class Blockchain(Base):
         outdated = None
         for node in nodes:
             try:
-                resp = requests.get(f"{node.url}/chains/{self.id}/blocks", timeout=2)
+                resp = requests.get(f"{node.url}/chains/{self.id}/blocks?detail=true", timeout=2)
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 LOGGER.warning("Node [%s] is unresponsive for outdated verification. Skipping it.", node.url)
                 continue
