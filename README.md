@@ -1,4 +1,4 @@
-# EvalBlockchain
+# Blockchain
 
 Explore extensions and applicability of Blockchain technology to guarantee integrity and traceability of private data. 
 
