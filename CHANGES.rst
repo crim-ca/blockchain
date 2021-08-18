@@ -4,28 +4,28 @@
 Changes
 *******
 
-`Unreleased <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain>`_ (latest)
+`Unreleased <https://github.com/crim-ca/blockchain/tree/master>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
 * Nothing yet.
 
-`0.11.2 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.11.2>`_ (2021-08-16)
+`0.11.2 <https://github.com/crim-ca/blockchain/tree/0.11.2>`_ (2021-08-16)
 ---------------------------------------------------------------------------------------------------------------
 
 * Fix missing ``detail=true`` parameter for retrieval of remote node blocks during blockchain consensus resolution.
 
-`0.11.1 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.11.1>`_ (2021-08-16)
+`0.11.1 <https://github.com/crim-ca/blockchain/tree/0.11.1>`_ (2021-08-16)
 ---------------------------------------------------------------------------------------------------------------
 
 * Update invalid requirements reference to extended ``addict`` package with JSON converter.
 
-`0.11.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.11.0>`_ (2021-08-16)
+`0.11.0 <https://github.com/crim-ca/blockchain/tree/0.11.0>`_ (2021-08-16)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add current API ``version`` field in frontpage endpoint.
 * Add API ``version`` label to every UI page using shared inherited Mako definition.
 
-`0.10.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.10.0>`_ (2021-08-12)
+`0.10.0 <https://github.com/crim-ca/blockchain/tree/0.10.0>`_ (2021-08-12)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add UI endpoint and links that allow display of complete list of blocks details and their stored consents.
@@ -34,14 +34,14 @@ Changes
 * Replace ``APP.node`` with only ``UUID`` of current node by full ``Node`` class that contains both the URL and UUID.
 * Fix override of local node ``host`` value to allow referring to public IP.
 
-`0.9.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.9.0>`_ (2021-08-12)
+`0.9.0 <https://github.com/crim-ca/blockchain/tree/0.9.0>`_ (2021-08-12)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add sample execution call to start an application node using multiple ``gunicorn`` workers.
 * Add ``gunicorn`` to requirements.
 * Fix breaking changes in ``flask`` and ``apispec`` major versions not pinned by ``flask-apispec``.
 
-`0.8.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.8.0>`_ (2021-08-09)
+`0.8.0 <https://github.com/crim-ca/blockchain/tree/0.8.0>`_ (2021-08-09)
 ---------------------------------------------------------------------------------------------------------------
 
 * Change ``GET /chains/{CHAIN_ID}/blocks`` endpoint to return by default a list of Block IDs instead of their expanded
@@ -54,7 +54,7 @@ Changes
 * Add ``app.run`` function to allow execution of the Web Application through WSGI runner such as ``gunicorn``.
 * Change parsing of command line arguments to support both direct Web Application call and through WSGI runner.
 
-`0.7.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.7.0>`_ (2021-07-16)
+`0.7.0 <https://github.com/crim-ca/blockchain/tree/0.7.0>`_ (2021-07-16)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add listing of known remote network nodes in UI summary page.
@@ -64,13 +64,13 @@ Changes
 * Add CSS for ``UUID`` fields in UI pages.
 * Apply sorting of ``Content`` by ``ContentAction`` rather than created date for easier readability in UI page.
 
-`0.6.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.6.0>`_ (2021-07-09)
+`0.6.0 <https://github.com/crim-ca/blockchain/tree/0.6.0>`_ (2021-07-09)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add body top-menu table to render current node ID on each UI page.
 * Fix incorrect rendering of UI shortcut link titles.
 
-`0.5.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.5.0>`_ (2021-06-21)
+`0.5.0 <https://github.com/crim-ca/blockchain/tree/0.5.0>`_ (2021-06-21)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add ``Consent`` updates, reporting and resolution against new blocks added to the blockchain.
@@ -81,14 +81,14 @@ Changes
 * Fix block instantiation using predefined ``created`` value to avoid regeneration with current datetime.
 * Fix issue related to incorrect inheritance of fields when resolving JSON representation of ``AttributeDict``.
 
-`0.4.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.4.0>`_ (2021-06-18)
+`0.4.0 <https://github.com/crim-ca/blockchain/tree/0.4.0>`_ (2021-06-18)
 ---------------------------------------------------------------------------------------------------------------
 
 * Add consents implementation embedded in the blocks of the blockchains.
 * Add change tracking, history and resolution of latest consents from blockchain.
 * Add Mako templates and UI endpoints to display blockchains and their contents.
 
-`0.3.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.3.0>`_ (2021-06-04)
+`0.3.0 <https://github.com/crim-ca/blockchain/tree/0.3.0>`_ (2021-06-04)
 ---------------------------------------------------------------------------------------------------------------
 
 Features / Changes
@@ -106,7 +106,7 @@ Bug Fixes
 ~~~~~~~~~~~~~~~~~~~~~
 * Fix resolution if LICENSE metadata.
 
-`0.2.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.2.0>`_ (2021-05-07)
+`0.2.0 <https://github.com/crim-ca/blockchain/tree/0.2.0>`_ (2021-05-07)
 ---------------------------------------------------------------------------------------------------------------
 
 Features / Changes
@@ -120,7 +120,7 @@ Bug Fixes
 ~~~~~~~~~~~~~~~~~~~~~
 * Fix resolution and loading of ``FileSystemDatabase`` blockchain contents from existing data files.
 
-`0.1.0 <https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain?at=refs/tags/0.1.0>`_ (2021-05-01)
+`0.1.0 <https://github.com/crim-ca/blockchain/tree/0.1.0>`_ (2021-05-01)
 ---------------------------------------------------------------------------------------------------------------
 
 * First structured release.
