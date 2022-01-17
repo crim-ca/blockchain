@@ -11,7 +11,7 @@ import requests
 from dateutil import parser as dt_parser
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
 
-from blockchain.utils import get_logger
+from blockchain.utils import compute_hash, get_logger
 
 if TYPE_CHECKING:
     from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
@@ -345,29 +345,36 @@ class Block(ConsentChange):
         })
         super(Block, self).__init__(*args, **kwargs)
 
+    @property
     def hash(self):
+        # type: () -> str
         """
         Generate the hash representation of the contents of this block.
         """
         # ensure that the Dictionary is Ordered, or hashes will become inconsistent
         # hash must combine JSON representation such that other nodes can compute it as well
         block_str = json.dumps(self.json(), sort_keys=True).encode()
-        block_hash = hashlib.sha256(block_str).hexdigest()
+        block_hash = compute_hash(block_str)
         return block_hash
 
 
 class Blockchain(Base):
-    def __init__(self, chain=None, genesis_block=True, *_, **__):
-        # type: (Optional[Iterable[Block]], bool, Any, Any) -> None
+    def __init__(self, chain=None, genesis_block=True, difficulty=4, *_, **__):
+        # type: (Optional[Iterable[Block]], bool, int, Any, Any) -> None
         """
         Initialize the blockchain.
 
-        If blocks are provided, they are loaded as is.
-        Otherwise, generate the genesis block.
-
-        Genesis block generation can be skipped if running initial resolution against other nodes.
+        :param chain:
+            Predefined list of blocks to load.
+            If blocks are provided, they are loaded as is.
+            Otherwise, generate the genesis block.
+        :param genesis_block:
+            Genesis block generation can be skipped if running initial resolution against other nodes.
+        :param difficulty:
+            Hashing validation difficulty as the amount of successive zeros needed guess the next block as valid.
         """
         super(Blockchain, self).__init__(*_, **__)
+        self.difficulty = difficulty
         self.pending_transactions = []
         self.pending_consents = []
         LOGGER.warning("CHAIN: %s", chain)
@@ -424,6 +431,7 @@ class Blockchain(Base):
     chain = blocks  # alias
 
     def valid_chain(self, chain):
+        # type: (Blockchain) -> bool
         """
         Determine if a given blockchain is valid.
 
@@ -533,25 +541,25 @@ class Blockchain(Base):
                     index = length - offset - 1
                     block = self.blocks[index]
                     other = Block(body["blocks"][index])
-                    if block.hash() == other.hash():
+                    if block.hash == other.hash:
                         outdated = False  # for now valid, but continue until last node
                 # stop on any more recent node that can be validated
                 else:
                     index = length - 1
                     block = self.blocks[index]
                     other = Block(body["blocks"][index])
-                    if block.hash() == other.hash():
+                    if block.hash == other.hash:
                         return True
                     # otherwise, unknown conflict - cannot ensure if outdated or not
         return outdated
 
     def new_block(self, proof, previous_hash=None):
-        # type: (int, Optional[str]) -> Block
+        # type: (int, Optional[int], Optional[str]) -> Block
         """
         Create a new Block in the Blockchain
 
         :param proof: The proof given by the Proof of Work algorithm
-        :param previous_hash: Hash of previous Block
+        :param previous_hash: Hash of previous Block, or compute it from last block in chain.
         :returns: New Block
         """
 
@@ -618,7 +626,7 @@ class Blockchain(Base):
         """
         Creates a SHA-256 hash of a :class:`Block`.
         """
-        return block.hash()
+        return block.hash
 
     def proof_of_work(self, last_block):
         # type: (Block) -> int
@@ -641,8 +649,7 @@ class Blockchain(Base):
 
         return proof
 
-    @staticmethod
-    def valid_proof(last_proof, proof, last_hash):
+    def valid_proof(self, last_proof, proof, last_hash):
         # type: (int, int, str) -> bool
         """
         Validates the Proof
@@ -653,9 +660,10 @@ class Blockchain(Base):
         :returns: True if correct, False if not.
         """
 
-        guess = f"{last_proof}{proof}{last_hash}".encode()
-        guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == "0000"
+        guess = f"{last_proof}{proof}{last_hash}"
+        guess_hash = compute_hash(guess)
+        guess_valid = "0" * self.difficulty
+        return guess_hash[:self.difficulty] == guess_valid
 
 
 class MultiChain(dict):

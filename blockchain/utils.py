@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import sys
@@ -87,3 +88,10 @@ def get_links(scope, self=True):
             title = rel.replace("_", " ").capitalize()
             links.append({"href": urljoin(request.url, url_for(endpoint)), "rel": rel, "title": title})
     return links
+
+
+def compute_hash(value):
+    # type: (Any) -> str
+    e_value = str(value).encode("utf-8")
+    e_secret = str(APP.secret).encode("utf-8")
+    return hmac.new(e_value, msg=e_secret, digestmod=hashlib.sha256).hexdigest()

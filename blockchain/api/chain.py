@@ -82,7 +82,7 @@ def get_chain_links(chain_id):
         {"rel": "consensus", "href": url_for("chain.consensus", chain_id=chain_id)},
         # {"rel": "transaction", "href": url_for("chain.new_transaction", chain_id=chain_id)},  # only POST
         {"rel": "mine", "href": url_for("chain.mine", chain_id=chain_id)},
-    ]
+    ]  # type: List[Dict[str, str]]
     for link in links:
         link["href"] = urljoin(request.url, link["href"])
         link["title"] = link["rel"].capitalize()
@@ -111,6 +111,7 @@ def check_blockchain_exists(node, chain_id):
 @doc(description="Obtain list of available blockchains on this node.", tags=["Chains"])
 @use_kwargs(schemas.ResolveQuery, location="query")
 def list_chains(resolve=False):
+    # type: (bool) -> APP.response_class
     chains = set(APP.blockchains)
     str_chains = {str(chain) for chain in chains}
     new_chains = set()
@@ -146,6 +147,7 @@ def list_chains(resolve=False):
 @CHAIN.route(f"/{CHAIN_ID}", methods=["GET"])
 @doc(description="Obtain the list of blocks that constitute a blockchain.", tags=["Chains"])
 def view_chain(chain_id):
+    # type: (uuid.UUID) -> APP.response_class
     chain = get_chain(chain_id)
     response = {
         "chain": chain.json(detail=False),
@@ -159,6 +161,7 @@ def view_chain(chain_id):
 @doc(description="Obtain full details of blocks that constitute a blockchain.", tags=["Chains", "Blocks"])
 @use_kwargs(schemas.DetailQuery, location="query")
 def list_blocks(chain_id, detail=False):
+    # type: (uuid.UUID, bool) -> APP.response_class
     chain = get_chain(chain_id)
     blocks = list(chain.blocks) if detail else [block.id for block in chain.blocks]
     data = AttributeDict({"blocks": blocks, "length": len(blocks)})
@@ -168,6 +171,7 @@ def list_blocks(chain_id, detail=False):
 @CHAIN.route(f"/{CHAIN_ID}/blocks/{BLOCK_REF}", methods=["GET"])
 @doc(description="Obtain the details of a specific block within a blockchain.", tags=["Chains", "Blocks"])
 def chain_block(chain_id, block_ref):
+    # type: (uuid.UUID, AnyRef) -> APP.response_class
     chain = get_chain(chain_id)
     block = get_block(block_ref, chain)
     data = AttributeDict({"chain": chain.id, "block": block})
@@ -177,6 +181,8 @@ def chain_block(chain_id, block_ref):
 @CHAIN.route(f"/{CHAIN_ID}/mine", methods=["GET"])
 @doc(description="Mine a blockchain to generate a new block.", tags=["Chains"])
 def mine(chain_id):
+    # type: (AnyUUID) -> APP.response_class
+
     # We run the proof of work algorithm to get the next proof...
     blockchain = get_chain(chain_id)
     last_block = blockchain.last_block
@@ -208,6 +214,7 @@ def mine(chain_id):
 @CHAIN.route(f"/{CHAIN_ID}/transactions", methods=["POST"])
 @doc(description="Create a new transaction on the blockchain.", tags=["Chains"])
 def new_transaction(chain_id):
+    # type: (AnyUUID) -> APP.response_class
     values = request.get_json()
 
     # Check that the required fields are in the POST'ed data
@@ -227,6 +234,7 @@ def new_transaction(chain_id):
 @CHAIN.route(f"/{CHAIN_ID}/consents", methods=["GET"])
 @doc("Obtain consents status of a given blockchain.", tags=["Chains", "Consents"])
 def view_consents(chain_id):
+    # type: (AnyUUID) -> APP.response_class
     chain = get_chain(chain_id)
     history = ConsentChange.history(chain)
     consents = [consent.json() for consent in ConsentChange.latest(chain)]
@@ -251,6 +259,8 @@ def view_consents(chain_id):
 @doc(description="Create a new consent change to be registered on the blockchain.", tags=["Chains", "Consents"])
 @use_kwargs(schemas.ConsentBody, location="json")
 def update_consent(chain_id, action, consent, expire=None):
+    # type: (AnyUUID, ConsentAction, bool, Optional[datetime]) -> APP.response_class
+
     # run the proof of work algorithm to get the next proof
     blockchain = get_chain(chain_id)
     last_block = blockchain.last_block
@@ -288,6 +298,7 @@ def update_consent(chain_id, action, consent, expire=None):
 @marshal_with(schemas.ResolveChain, 201,
               description="Generated missing blockchain retrieved from other nodes.", apply=False)
 def consensus(chain_id):
+    # type: (uuid.UUID) -> APP.response_class
     blockchain = get_chain(chain_id, allow_missing=True)
     generated = False
     if not blockchain:
