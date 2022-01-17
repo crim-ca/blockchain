@@ -1,5 +1,5 @@
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from flask import Blueprint, abort, jsonify, request
 from flask import current_app as APP  # noqa
@@ -49,6 +49,7 @@ def get_node(node_ref):
 @use_kwargs(schemas.DetailQuery, location="query")
 @use_kwargs(schemas.SyncQuery, location="query")
 def list_nodes(detail=False, sync=False):
+    # type: (bool, bool) -> APP.response_class
     links = get_links(NODES)
     nodes = APP.nodes or []
     if sync:
@@ -61,6 +62,7 @@ def list_nodes(detail=False, sync=False):
 @NODES.route("/", methods=["POST"])
 @doc(description="Register a new blockchain node to resolve consensus against.", tags=["Nodes"])
 def register_nodes():
+    # type: () -> APP.response_class
     values = request.get_json()
     endpoints = values.get("nodes")
     if endpoints is None:
@@ -88,5 +90,6 @@ def register_nodes():
 @NODES.route(f"/{NODE_REF}", methods=["GET"])
 @doc(description="Obtain synchronization details of a registered blockchain node.", tags=["Nodes"])
 def view_node(node_ref):
+    # type: (AnyRef) -> APP.response_class
     node = get_node(node_ref)
     return jsonify(node)

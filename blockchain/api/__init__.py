@@ -28,6 +28,7 @@ class BlockchainWebApp(Flask):
     nodes = None        # type: List[Node]  # list instead of set to preserve order
     node = None         # type: Node
     db = None           # type: Database
+    secret = None       # type: str
 
 
 # Instantiate the blockchain node webapp

@@ -52,6 +52,7 @@ def main(**args):
     parser.add_argument("-n", "--node", help="Unique identifier of the node. Generate one if omitted.")
     parser.add_argument("-N", "--nodes", nargs="*", action="append", type=str,
                         help="Node endpoints the blockchains should resolve consensus against.")
+    parser.add_argument("-s", "--secret", required=True, help="Node secret for hash encryption.")
 
     db_args = parser.add_argument_group(title="Database", description="Database options.")
     db_args.add_argument("--db", "--database", required=True, action=DatabaseTypeAction,
@@ -65,13 +66,13 @@ def main(**args):
                             help="Debug level logging. This also enables error traceback outputs in responses.")
     log_args.add_argument("-v", "--verbose", action="store_true", help="Enforce verbose logging to stdout.")
     log_args.add_argument("-l", "--log", help="output file to write generated logs.")
-    args = parser.parse_args(args=args)
+    ns = parser.parse_args(args=args or None)
 
     # set full module config
-    level = logging.DEBUG if args.debug else logging.ERROR if args.quiet else logging.ERROR
-    logger = set_logger_config(LOGGER, level=level, force_stdout=args.verbose, file=args.log)
-    run(level=level, host=args.host, port=args.port, db=args.db, node=args.node, nodes=args.nodes, new=args.new,
-        logger=logger, flask=True)
+    level = logging.DEBUG if ns.debug else logging.ERROR if ns.quiet else logging.ERROR
+    logger = set_logger_config(LOGGER, level=level, force_stdout=ns.verbose, file=ns.log)
+    run(level=level, logger=logger, flask=True, secret=ns.secret, new=ns.new,
+        host=ns.host, port=ns.port, db=ns.db, node=ns.node, nodes=ns.nodes)
 
 
 def run(host="0.0.0.0",         # type: str
@@ -80,6 +81,7 @@ def run(host="0.0.0.0",         # type: str
         node=None,              # type: AnyUUID
         nodes=None,             # type: Union[str, List[str], List[List[str]]]
         new=False,              # type: bool
+        secret=None,            # type: str
         level=logging.INFO,     # type: Union[int, str]
         logger=None,            # type: Optional[logging.Logger]
         flask=False             # type: bool
@@ -91,6 +93,11 @@ def run(host="0.0.0.0",         # type: str
         logger = set_logger_config(LOGGER, level)
     if level == logging.DEBUG:
         APP.debug = True
+
+    if not secret:
+        logger.error("Missing required secret.")
+        sys.exit(-1)
+    APP.secret = secret
 
     try:
         node_id = node if node else str(uuid.uuid4())
