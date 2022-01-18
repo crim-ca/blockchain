@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="blockchain-cluster (uvicorn)" type="CompoundRunConfigurationType">
+    <toRun name="blockchain-multi (uvicorn) (1)" type="PythonConfigurationType" />
+    <toRun name="blockchain-multi (uvicorn) (2)" type="PythonConfigurationType" />
+    <toRun name="blockchain-multi (uvicorn) (3)" type="PythonConfigurationType" />
+    <toRun name="blockchain-multi (uvicorn) (4)" type="PythonConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

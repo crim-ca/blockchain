@@ -2,29 +2,10 @@
 addict @ https://github.com/fmigneault/addict/archive/json.zip
 
 ## USING FastAPI
-# fastapi[all]
-# fastapi-mako
-# uvicorn[standard]
-
-## USING FLASK-APISPEC
-#apispec>=4,<5
-#flask<2
-#flask_apispec==0.11
-
-## USING FLASK-SMOREST
-flask>=2
-flask-smorest
-
-## OTHER VARIANTS
-# flasgger
-# flask_restx
-# flasgger
-
-## USED BY ALL (FLASK)
-flask_mako
-gunicorn
-marshmallow
-marshmallow_enum
+fastapi[all]
+fastapi-mako
+pydantic
+uvicorn[standard]
 
 python-dateutil
 requests

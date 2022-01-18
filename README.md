@@ -38,19 +38,20 @@ with the ``--nodes='<node1-url>,<node2-url>,...'`` option to allow consensus res
 Otherwise, nodes can be registered after startup using the relevant API endpoints.
 
 Alternatively to above calling method of the web application that starts a single listener (useful for debugging), 
-running using ``gunicorn`` is better for servers to employ multi-worker nodes that allow answering to more requests 
+running using ``uvicorn`` is better for servers to employ multi-worker nodes that allow answering to more requests 
 in parallel:
 
 ```shell
-gunicorn \
+uvicorn \
   "blockchain.app:run(host='<public-ip>', port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" \
-  --bind 0.0.0.0:5001 \
+  --host 0.0.0.0 \
+  --port 5001 \
   --workers 4
 ```
 
 The parameters normally provided as CLI options when calling ``python`` must be passed directly to the ``run`` function 
-when using ``gunicorn`` WSGI runner since it does not allow additional parameters as input 
-(options are specific to ``gunicorn``). The ``--bind`` parameter should use ``0.0.0.0`` to ensure proper reception of
+when using ``uvicorn`` ASGI runner since it does not allow additional parameters as input 
+(options are specific to ``uvicorn``). The ``--bind`` parameter should use ``0.0.0.0`` to ensure proper reception of
 requests from any endpoints, regardless of the exposed IP by the server. This will allow connecting to the web 
 application both locally (``localhost``) and remotely (exposed URL of the server hosting this service node).   
 

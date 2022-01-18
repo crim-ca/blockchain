@@ -1,241 +1,163 @@
-from marshmallow import Schema, fields, post_load, pre_dump
-from marshmallow.validate import OneOf
-from marshmallow_enum import EnumField
+from datetime import datetime
+from decimal import Decimal
+from typing import List, Optional, Union
+
+from fastapi import Path, Query
+from pydantic import AnyUrl, BaseModel, Field, PositiveInt, UUID4, constr
 
 from blockchain.impl import ConsentAction, ConsentType
 
 
-class OrderedSchema(Schema):
-    class Meta:
-        ordered = True
+VersionString = constr(regex="^[0-9]+.[0-9]+.[0-9]+$")
 
 
-class Link(fields.Mapping):
-    href = fields.URL()
-    rel = fields.String()
-    title = fields.String(required=False)
+def BlockPathRef(*args, description="Block UUID or index in the chain.", **kwargs):  # noqa
+    return Path(*args, description=description, **kwargs)
 
 
-class FormatQuery(Schema):
-    """
-    Format of the generated output.
-    """
-    f = fields.String(
-        validate=OneOf(["json", "yaml"]),
-        required=False,
-        allow_none=True,
-        default="json",
-        attribute="format",
-        description=__doc__.strip()
-    )
+def DetailQuery(*args, description="Obtain detailed description of the represented items.", **kwargs):  # noqa
+    return Query(*args, description=description, **kwargs)
 
 
-class DetailQuery(Schema):
-    """
-    Detail representation the generated output.
-    Will synchronize external nodes if not already resolved.
-    """
-    detail = fields.Boolean(
-        required=False,
-        allow_none=True,
-        default=False,
-        attribute="detail",
-        description=__doc__.strip()
-    )
+class HTTPErrorResponse(BaseModel):
+    code: int
+    name: str
+    description: str
+    messages: Optional[List[str]]
 
 
-class SyncQuery(Schema):
-    """
-    Force re-synchronization with external node references.
-    """
-    sync = fields.Boolean(
-        required=False,
-        allow_none=True,
-        default=False,
-        attribute="sync",
-        description=__doc__.strip()
-    )
+class Link(BaseModel):
+    href: AnyUrl
+    rel: str = Field(min_length=1)
+    title: Optional[str]
 
 
-class ResolveQuery(Schema):
-    """
-    Force consensus resolution with external node references.
-    """
-    resolve = fields.Boolean(
-        required=False,
-        allow_none=True,
-        default=False,
-        attribute="resolve",
-        description=__doc__.strip()
-    )
+class FrontpageResponse(BaseModel):
+    message: str
+    version: VersionString
+    node: UUID4
+    links: List[Link]
 
 
-class Frontpage(OrderedSchema):
-    description = fields.String()
-    node = fields.UUID()
-    links = fields.List(Link)
+class NodeSchema(BaseModel):
+    id: UUID4
+    url: AnyUrl
+    resolved: bool
 
 
-class GetChainSchema(Schema):
-    validation = True
-    parameters = [
-        {"in": "query", "type": fields.Boolean(allow_none=True), "name": "detail", "required": False}
-    ]
+class NodesResponse(BaseModel):
+    nodes: Union[List[NodeSchema], List[AnyUrl]]
+    links: List[Link]
 
 
-class ConsentActionField(EnumField):
-    def __init__(self,
-                 *args,
-                 required=True,
-                 **kwargs):
-        super(ConsentActionField, self).__init__(
-            ConsentAction,
-            *args,
-            by_value=False,
-            required=required,
-            **kwargs
-        )
+class RegisterNodesBody(BaseModel):
+    nodes: List[AnyUrl] = Field(description="Endpoints of nodes to register.", min_items=1)
 
 
-class ConsentTypeField(EnumField):
-    def __init__(self,
-                 *args,
-                 required=True,
-                 **kwargs):
-        super(ConsentTypeField, self).__init__(
-            ConsentType,
-            *args,
-            by_value=True,
-            required=required,
-            **kwargs
-        )
+class RegisterNodesResponse(BaseModel):
+    message: str = Field(description="Result of the operation.")
+    total: int = Field(description="Amount of nodes that can participate in consensus resolution.")
 
 
-class ConsentStatusField(fields.Boolean):
-    def __init__(self,
-                 *args,
-                 required=True,
-                 default=False,
-                 description="Explicit granted or revoked consent status of the corresponding action.",
-                 **kwargs):
-        super(ConsentStatusField, self).__init__(
-            *args,
-            description=description,
-            required=required,
-            default=default,
-            **kwargs,
-        )
+class ConsentRequestBody(BaseModel):
+    action: ConsentAction
+    consent: bool
+    expire: Optional[datetime] = None
 
 
-class ConsentExpireField(fields.DateTime):
-    def __init__(self,
-                 *args,
-                 required=False,
-                 default=None,
-                 description=(
-                    "Moment when the consent should be considered expired. "
-                    "Revert back automatically to revoked consent when datetime is reached. "
-                    "Consents never expire if unspecified, unless explicitly updated with revoked consent."
-                 ),
-                 **kwargs):
-        super(ConsentExpireField, self).__init__(
-            *args,
-            description=description,
-            required=required,
-            default=default,
-            **kwargs,
-        )
+class ConsentSchema(BaseModel):
+    id: UUID4
+    action: ConsentAction = Field(description="Action represented by this consent definition.")
+    consent: bool = Field(description="Indicates if consent is given by data owner.")
+    type: ConsentType = Field(description="Details the last modification type that defined this consent definition.")
+    created: datetime
+    expire: Optional[datetime] = Field(None, description=(
+        "Moment when the consent should be considered expired. "
+        "Revert back automatically to revoked consent when datetime is reached. "
+        "Consents never expire if unspecified, unless explicitly updated with revoked consent."
+    ))
 
 
-class ConsentRequestBody(Schema):
-    class Meta:
-        attribute = "data"
-
-    action = ConsentActionField(
-        description="Action affected by the consent change."
-    )
-    expire = ConsentExpireField()
-    consent = ConsentStatusField()
+class TransactionSchema(BaseModel):
+    sender: str
+    recipient: str
+    amount: Decimal
 
 
-class ConsentSchema(OrderedSchema):
-    id = fields.UUID()
-    action = ConsentActionField(
-        description="Action represented by this consent definition."
-    )
-    content = fields.Boolean(
-        description="Indicates if consent is given by data owner."
-    )
-    expire = ConsentExpireField()
-    created = fields.DateTime(required=True)
-    type = ConsentTypeField(
-        description="Details the last modification type that defined this consent definition."
-    )
+class BlockSchema(BaseModel):
+    id: UUID4
+    index: int
+    proof: int
+    created: datetime
+    previous_hash: str
+    transactions: List[TransactionSchema]
+    consents: List[ConsentSchema]
 
 
-class TransactionSchema(Schema):
-    pass
+class ChainBlockResponse(BaseModel):
+    message: str = Field(description="Result of block detail listing.")
+    chain: UUID4
+    block: BlockSchema
 
 
-class BlockSchema(OrderedSchema):
-    id = fields.UUID()
-    index = fields.Integer()
-    proof = fields.Integer()
-    created = fields.DateTime()
-    previous_hash = fields.String()
-    transactions = fields.List(fields.Nested(TransactionSchema))
-    consents = fields.List(fields.Nested(ConsentSchema))
+class ChainConsentsSummaryResponse(BaseModel):
+    class Config:
+        schema_extra = {
+            "description": "Default summary representation."
+        }
+    blocks: List[UUID4]
+    length: PositiveInt
 
 
-class ChainSummary(OrderedSchema):
-    id = fields.UUID()
-    updated = fields.DateTime(description="Last moment the chain was updated by consensus resolution.")
-    # blocks = fields.List # FIXME: UUID or Block based on query param
+class ChainConsentsDetailedResponse(BaseModel):
+    class Config:
+        schema_extra = {
+            "description": "Detailed representation when query parameter requests it."
+        }
+    blocks: List[BlockSchema]
+    length: PositiveInt
 
 
-class ChainResponse(OrderedSchema):
-    chain = fields.Nested(ChainSummary)
-    length = fields.Integer(description="Length of the blockchain.")
-    links = fields.List(Link)
+class ListConsentsResponse(BaseModel):
+    message: str = Field(description="Result of consents represented in the blockchain.")
+    updated: datetime = Field(description="Last moment the chain was updated by consensus resolution.")
+    outdated: bool = Field(description="Status indicating if a consent change was detected across the node network.")
+    verified: bool = Field(description="Status indicating if latest consents were validated against other nodes.")
+    changes: List[str] = Field(description="Summary of all consent changes history applied over the chain.")
+    consents: List[ConsentSchema] = Field(description="Latest resolved consents.")
 
 
-class ChainBlockResponse(OrderedSchema):
-    message = fields.String(description="Result of block detail listing.")
-    chain = fields.UUID(description="Reference identifier of the chain.")
-    block = fields.Nested(BlockSchema(), description="Block details.")
+class UpdateConsentResponse(BaseModel):
+    message: str = Field(description="Result of the new consent block.")
+    index: PositiveInt = Field(description="Index of the new block in the chain.")
+    transactions: List[TransactionSchema]
+    consents: List[ConsentSchema] = Field(description="Consents applied within the new block.")
+    proof: int = Field(description="Proof of work associated to the block.")
+    previous_hash: str = Field(description="Hash of the previous block in the chain.")
 
 
-class ListConsentsResponse(OrderedSchema):
-    message = fields.String(description="Result of consents represented in the blockchain.")
-    updated = fields.DateTime(description="Last moment the chain was updated by consensus resolution.")
-    outdated = fields.Boolean(description="Status indicating if a consent change was detected across the node network.")
-    verified = fields.Boolean(description="Status indicating if latest consents were validated against other nodes.")
-    changes = fields.List(fields.String(), description="Summary of all consent changes history applied over the chain.")
-    consents = fields.List(fields.Nested(ConsentSchema), description="Latest resolved consents.")
+class ChainSchema(BaseModel):
+    id: UUID4
+    updated: datetime = Field(description="Last moment the chain was updated by consensus resolution.")
+    blocks: List[BlockSchema] = Field(min_items=1)
 
 
-class UpdateConsentResponse(OrderedSchema):
-    message = fields.String(description="Result of the new consent block.")
-    index = fields.Integer(description="Index of the new block in the chain.")
-    transactions = fields.List(fields.Nested(TransactionSchema))
-    consents = fields.List(fields.Nested(ConsentSchema), description="Consents applied within the new block.")
-    proof = fields.Integer(description="Proof of work associated to the block.")
-    previous_hash = fields.String(description="Hash of the previous block in the chain.")
+class ChainSummarySchema(BaseModel):
+    id: UUID4
+    updated: datetime = Field(description="Last moment the chain was updated by consensus resolution.")
+    blocks: List[UUID4] = Field(min_items=1)
 
 
-class ChainSchema(OrderedSchema):
-    id = fields.UUID()
-    blocks = fields.List(fields.Nested(BlockSchema))
+class ChainSummaryResponse(BaseModel):
+    chain: ChainSummarySchema
+    length: PositiveInt
+    links: List[Link]
 
 
-class NodeID(fields.UUID):
-    pass
-
-
-class ResolveChainResponse(OrderedSchema):
-    message = fields.String(description="Result of the consensus resolution.")
-    updated = fields.DateTime(description="Last moment the chain was updated by consensus resolution.")
-    resolved = fields.Boolean(description="Indicates if any update was applied following resolution.")
-    validated = fields.Boolean(description="Indicates if any other node was available for consensus.")
-    nodes = fields.List(NodeID, description="Nodes that participated in validation of consensus resolution.")
-    chain = fields.List(fields.Nested(BlockSchema, description="Blocks that form the resolved chain."))
+class ResolveChainResponse(BaseModel):
+    message: str = Field(description="Result of the consensus resolution.")
+    updated: datetime = Field(description="Last moment the chain was updated by consensus resolution.")
+    resolved: bool = Field(description="Indicates if any update was applied following resolution.")
+    validated: bool = Field(description="Indicates if any other node was available for consensus.")
+    nodes: UUID4 = Field(description="Nodes that participated in validation of consensus resolution.")
+    chain: List[BlockSchema] = Field(description="Blocks that form the resolved chain.")
