@@ -1,120 +1,64 @@
 import os
 import importlib
-from typing import TYPE_CHECKING
+from typing import List, Optional
+from typing_extensions import Literal
 from urllib.parse import urljoin
 
-from flask import Flask, Response, json, jsonify, request
-from flask_mako import MakoTemplates
-from flask_smorest import Api, Blueprint
-from flask_smorest.arguments import ArgumentsMixin
-from flask_smorest.response import ResponseMixin
-from werkzeug.exceptions import HTTPException
+from fastapi import APIRouter, Request
 
-from blockchain import __meta__, __title__
+from blockchain import __meta__
 from blockchain.api import schemas
+from blockchain.database import Database
+
+# shortcuts for top-level app
 from blockchain.api.block import BLOCK
 from blockchain.api.chain import CHAIN
 from blockchain.api.nodes import NODES
-from blockchain.ui.views import VIEWS
+from blockchain.ui.views import MAKO, VIEWS
 
-if TYPE_CHECKING:
-    from typing import List
-
-    from blockchain.database import Database
-    from blockchain.impl import MultiChain, Node
+MAIN = APIRouter()
 
 
-class BlockchainWebApp(Flask, ArgumentsMixin, ResponseMixin):
-    blockchains = None  # type: MultiChain
-    nodes = None        # type: List[Node]  # list instead of set to preserve order
-    node = None         # type: Node
-    db = None           # type: Database
-    secret = None       # type: str
-
-
-# Instantiate the blockchain node webapp
-APP = BlockchainWebApp(__name__)
-MAIN = Blueprint("main", __name__)
-
-
-@APP.errorhandler(HTTPException)
-def handle_exception(error):
-    # type: (HTTPException) -> Response
-    """Return JSON instead of HTML for HTTP errors."""
-    response = error.get_response()
-    data = {
-        "code": error.code,
-        "name": error.name,
-        "description": error.description,
+@MAIN.get(
+    "/",
+    tags=["API"],
+    summary="Details of this blockchain node.",
+    response_model=schemas.FrontpageResponse,
+    responses={
+        200: {
+            "description": "Landing page of the Blockchain Node API."
+        }
     }
-    exception = getattr(error, "exc", None)
-    messages = getattr(exception, "messages", None)
-    if messages:
-        data["messages"] = messages
-    response.data = json.dumps(data)
-    response.content_type = "application/json"
-    return response
-
-
-@MAIN.route("/", methods=["GET"])
-@MAIN.doc(summary="Details of this blockchain node.", tags=["API"])
-@MAIN.response(200, schemas.Frontpage, description="Landing page of the Blockchain Node API.")
-def frontpage():
+)
+async def frontpage(request: Request):
     """
     Landing page of the Blockchain Node API.
     """
+    base = str(request.url)
     body = {
         "message": "Blockchain Node",
-        "node": APP.node.id,
+        "node": request.app.node.id,
         "version": __meta__["version"],
         "links": [
-            {"rel": "api", "href": urljoin(request.url, "/api")},
-            {"rel": "ui", "href": urljoin(request.url, "/ui")},
-            {"rel": "json", "href": urljoin(request.url, "/schema")},
-            {"rel": "yaml", "href": urljoin(request.url, "/schema?f=yaml")},
-            {"rel": "nodes", "href": urljoin(request.url, "/nodes")},
-            {"rel": "self", "href": request.url}
+            {"rel": "api", "href": urljoin(base, "/api")},
+            {"rel": "ui", "href": urljoin(base, "/ui")},
+            {"rel": "json", "href": urljoin(base, "/schema")},
+            {"rel": "yaml", "href": urljoin(base, "/schema?f=yaml")},
+            {"rel": "nodes", "href": urljoin(base, "/nodes")},
+            {"rel": "self", "href": base}
         ]
     }
     return body
 
 
-@MAIN.route("/schema", methods=["GET"])
-@MAIN.doc(description="Obtain the OpenAPI schema of supported requests.", tags=["API"])
-@MAIN.arguments(schemas.FormatQuery, location="query")
-@MAIN.response(200, description="OpenAPI schema definition.")
-def openapi_schema(format=None):
+@MAIN.get("/schema", tags=["API"], responses={
+    200: {
+        "description": "Obtain the OpenAPI schema of supported requests."
+    }
+})
+async def openapi_schema(format: Literal["json", "yaml"] = "json"):
     if format == "yaml":
         resp = Response(API.spec.to_yaml())
         resp.mimetype = "text/plain"
         return resp
     return API.spec.to_dict()
-
-
-APP.config["JSON_SORT_KEYS"] = False
-APP.config["OPENAPI_URL_PREFIX"] = "/api"
-APP.config["OPENAPI_JSON_PATH"] = "/json"
-APP.config["OPENAPI_REDOC_PATH"] = "/docs"
-APP.register_blueprint(MAIN)
-APP.register_blueprint(BLOCK)
-APP.register_blueprint(CHAIN)
-APP.register_blueprint(NODES)
-APP.register_blueprint(VIEWS)
-API = Api(APP, spec_kwargs={
-    "title": __title__,
-    "version": __meta__["Version"],
-    "openapi_version": "3.0.2",
-    "info": {
-        "title": __title__,
-        "description": __meta__["Summary"],
-        "contact": {
-            "responsibleOrganization": __meta__["Author"],
-            "responsibleDeveloper": __meta__["Maintainer"],
-            "email": __meta__["Maintainer-email"],
-            "url": __meta__["Home-page"],  # url=... in setup
-        },
-        # "termsOfService": "http://me.com/terms",
-        "license": __meta__["License"],
-        "version": __meta__["Version"]
-    }
-})

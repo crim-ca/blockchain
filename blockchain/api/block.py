@@ -1,20 +1,28 @@
-from typing import TYPE_CHECKING
+from fastapi import APIRouter, Request
 
-from flask import jsonify
-from flask import current_app as APP  # noqa
-from flask_smorest import Blueprint
+from blockchain import AnyRef
+from blockchain.api import schemas
+from blockchain.api.chain import get_block
 
-from blockchain.api.chain import BLOCK_REF, get_block
-
-if TYPE_CHECKING:
-    from blockchain import AnyRef
-
-BLOCK = Blueprint("block", __name__, url_prefix="/blocks")
+BLOCK = APIRouter(prefix="/blocks")
 
 
-@BLOCK.route(f"/{BLOCK_REF}", methods=["GET"])
-@BLOCK.doc(summary="Obtain the details of a specific block across blockchains.", tags=["Blocks"])
-def find_block(block_ref):
-    # type: (AnyRef) -> APP.response_class
-    block, chain = get_block(block_ref)
-    return jsonify({"chain": str(chain.id), "block": block.json()})
+@BLOCK.get(
+    "/{block_ref}",
+    tags=["Blocks"],
+    summary="Obtain the details of a specific block across blockchains.",
+    response_model=schemas.ChainBlockResponse,
+    responses={
+        200: {
+            "description": "Block details."
+        }
+    }
+)
+async def find_block(request: Request, block_ref: AnyRef = schemas.BlockPathRef(...)):
+    block, chain = get_block(request.app, block_ref)
+    data = {
+        "message": "Listing of block details successful.",
+        "chain": chain.id,
+        "block": block
+    }
+    return data
