@@ -12,7 +12,7 @@ from flask import current_app as APP  # noqa
 if TYPE_CHECKING:
     from typing import List, Optional, Union
 
-    from flask import Blueprint
+    from flask_smorest import Blueprint
 
     from blockchain import Link
     from blockchain.api import BlockchainWebApp

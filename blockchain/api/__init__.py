@@ -1,12 +1,13 @@
 import os
+import importlib
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
-from apispec import APISpec
-from apispec.ext.marshmallow import MarshmallowPlugin
 from flask import Flask, Response, json, jsonify, request
-from flask_apispec import FlaskApiSpec, doc, marshal_with, use_kwargs
 from flask_mako import MakoTemplates
+from flask_smorest import Api, Blueprint
+from flask_smorest.arguments import ArgumentsMixin
+from flask_smorest.response import ResponseMixin
 from werkzeug.exceptions import HTTPException
 
 from blockchain import __meta__, __title__
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from blockchain.impl import MultiChain, Node
 
 
-class BlockchainWebApp(Flask):
+class BlockchainWebApp(Flask, ArgumentsMixin, ResponseMixin):
     blockchains = None  # type: MultiChain
     nodes = None        # type: List[Node]  # list instead of set to preserve order
     node = None         # type: Node
@@ -33,8 +34,7 @@ class BlockchainWebApp(Flask):
 
 # Instantiate the blockchain node webapp
 APP = BlockchainWebApp(__name__)
-APP.url_map.strict_slashes = False  # allow trailing slashes
-APP.config["JSON_SORT_KEYS"] = False
+MAIN = Blueprint("main", __name__)
 
 
 @APP.errorhandler(HTTPException)
@@ -56,15 +56,15 @@ def handle_exception(error):
     return response
 
 
-@APP.route("/", methods=["GET"])
-@doc(description="Details of this blockchain node.", tags=["API"])
-@marshal_with(schemas.Frontpage, 200, description="Landing page of the Blockchain Node API.")
+@MAIN.route("/", methods=["GET"])
+@MAIN.doc(summary="Details of this blockchain node.", tags=["API"])
+@MAIN.response(200, schemas.Frontpage, description="Landing page of the Blockchain Node API.")
 def frontpage():
     """
     Landing page of the Blockchain Node API.
     """
     body = {
-        "description": "Blockchain Node",
+        "message": "Blockchain Node",
         "node": APP.node.id,
         "version": __meta__["version"],
         "links": [
@@ -76,54 +76,45 @@ def frontpage():
             {"rel": "self", "href": request.url}
         ]
     }
-    return jsonify(body)
+    return body
 
 
-@APP.route("/schema", methods=["GET"])
-@doc(description="Obtain the OpenAPI schema of supported requests.", tags=["API"])
-@use_kwargs(schemas.FormatQuery, location="query")
-@marshal_with(None, 200, description="OpenAPI schema definition.")
+@MAIN.route("/schema", methods=["GET"])
+@MAIN.doc(description="Obtain the OpenAPI schema of supported requests.", tags=["API"])
+@MAIN.arguments(schemas.FormatQuery, location="query")
+@MAIN.response(200, description="OpenAPI schema definition.")
 def openapi_schema(format=None):
     if format == "yaml":
         resp = Response(API.spec.to_yaml())
         resp.mimetype = "text/plain"
         return resp
-    return jsonify(API.spec.to_dict())
+    return API.spec.to_dict()
 
 
-APP.config.update({
-    "APISPEC_SWAGGER_URL": "/json",
-    "APISPEC_SWAGGER_UI_URL": "/api",
-    "APISPEC_SPEC": APISpec(
-        title=__title__,
-        version=__meta__["Version"],
-        openapi_version="3.0.2",
-        plugins=[MarshmallowPlugin()],
-        **{
-            "info": {
-                "title": __title__,
-                "description": __meta__["Summary"],
-                "contact": {
-                    "responsibleOrganization": __meta__["Author"],
-                    "responsibleDeveloper": __meta__["Maintainer"],
-                    "email": __meta__["Maintainer-email"],
-                    "url": __meta__["Home-page"],  # url=... in setup
-                },
-                # "termsOfService": "http://me.com/terms",
-                "license": __meta__["License"],
-                "version": __meta__["Version"]
-            }
-        }
-    )
-})
+APP.config["JSON_SORT_KEYS"] = False
+APP.config["OPENAPI_URL_PREFIX"] = "/api"
+APP.config["OPENAPI_JSON_PATH"] = "/json"
+APP.config["OPENAPI_REDOC_PATH"] = "/docs"
+APP.register_blueprint(MAIN)
 APP.register_blueprint(BLOCK)
 APP.register_blueprint(CHAIN)
 APP.register_blueprint(NODES)
 APP.register_blueprint(VIEWS)
-API_DIR = os.path.dirname(os.path.abspath(__file__))
-APP_DIR = os.path.dirname(API_DIR)
-MakoTemplates(APP)
-APP.template_folder = APP_DIR
-APP.static_folder = os.path.join(APP_DIR, "ui/static")
-API = FlaskApiSpec(APP, document_options=False)
-API.register_existing_resources()
+API = Api(APP, spec_kwargs={
+    "title": __title__,
+    "version": __meta__["Version"],
+    "openapi_version": "3.0.2",
+    "info": {
+        "title": __title__,
+        "description": __meta__["Summary"],
+        "contact": {
+            "responsibleOrganization": __meta__["Author"],
+            "responsibleDeveloper": __meta__["Maintainer"],
+            "email": __meta__["Maintainer-email"],
+            "url": __meta__["Home-page"],  # url=... in setup
+        },
+        # "termsOfService": "http://me.com/terms",
+        "license": __meta__["License"],
+        "version": __meta__["Version"]
+    }
+})

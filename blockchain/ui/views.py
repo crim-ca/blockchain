@@ -1,9 +1,10 @@
-from flask import Blueprint, Response, request, url_for
-from flask import current_app as APP  # noqa
-from flask_apispec import doc
-from flask_mako import render_template
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
+
+from flask import Response, request, url_for
+from flask import current_app as APP  # noqa
+from flask_mako import render_template
+from flask_smorest import Blueprint
 
 from blockchain import __meta__
 from blockchain.api.chain import CHAIN_ID, get_chain, get_chain_links, view_consents
@@ -55,7 +56,7 @@ def get_chain_info(chain, strip_shortcut=None):
 
 
 @VIEWS.route("/", methods=["GET"])
-@doc("Display shortcuts to other pages.", tags=["UI"])
+@VIEWS.doc(summary="Display shortcuts to other pages.", tags=["UI"])
 def shortcut_navigate():
     links = get_links(VIEWS, self=False)
     for link in links:
@@ -65,7 +66,7 @@ def shortcut_navigate():
 
 
 @VIEWS.route("/chains", methods=["GET"])
-@doc("Display registered blockchains on the current node.", tags=["Chains", "UI"])
+@VIEWS.doc(summary="Display registered blockchains on the current node.", tags=["Chains", "UI"])
 def view_chains():
     data = {
         "chains": [
@@ -84,7 +85,7 @@ def view_chains():
 
 
 @VIEWS.route(f"/chains/{CHAIN_ID}/blocks", methods=["GET"])
-@doc("Display block details within a blockchain.", tags=["Blocks", "UI"])
+@VIEWS.doc(summary="Display block details within a blockchain.", tags=["Blocks", "UI"])
 def view_blocks(chain_id):
     chain = get_chain(chain_id)
     blocks = [block.json() for block in chain.blocks]
@@ -94,7 +95,7 @@ def view_blocks(chain_id):
 
 
 @VIEWS.route(f"/{CHAIN_ID}/consents", methods=["GET"])
-@doc("Display consents status of a given blockchain.", tags=["Consents", "UI"])
+@VIEWS.doc(summary="Display consents status of a given blockchain.", tags=["Consents", "UI"])
 def display_consents(chain_id):
     chain = get_chain(chain_id)
     data = view_consents(chain.id).json

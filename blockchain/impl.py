@@ -99,17 +99,24 @@ class WithDatetime(Base):
     def __init__(self, *args, **kwargs):
         # generate or set created datetime
         created = kwargs.pop("created", kwargs.pop("timestamp", None))
-        self["created"] = created or self.created
+        dict.__setattr__(self, "created", created or self.created)
         super(WithDatetime, self).__init__(*args, **kwargs)
 
     @property
     def created(self):
-        # type: () -> str
+        # type: () -> datetime
         dt = self.get("created")
         if dt is None:
             dt = datetime.utcnow().isoformat()
             self["created"] = dt
         return dt
+
+    @created.setter
+    def created(self, created):
+        # type: (Optional[Union[str, datetime]]) -> None
+        if created is not None and isinstance(created, str):
+            created = datetime.fromisoformat(created)
+        dict.__setitem__(self, "created", created)
 
 
 class Transaction(Base):
@@ -144,10 +151,10 @@ class ConsentType(EnumNameHyphenCase):
 class Consent(WithDatetime):
     def __init__(self, action, consent, *args, expire=None, consent_type=ConsentType.CREATED, **kwargs):
         # type: (ConsentAction, bool, Any, Optional[datetime], ConsentType, Any) -> None
-        self["action"] = ConsentAction(action)
+        dict.__setattr__(self, "action", action)
         self["consent"] = consent
-        self["expire"] = expire
-        self["type"] = consent_type
+        dict.__setattr__(self, "expire", expire)
+        dict.__setattr__(self, "type", kwargs.pop("type", None) or consent_type)  # bw-compat & reload from JSON
         super(Consent, self).__init__(*args, **kwargs)
 
     def __repr__(self):
@@ -156,21 +163,42 @@ class Consent(WithDatetime):
 
     @property
     def action(self):
-        # type: () -> str
+        # type: () -> ConsentAction
         return self["action"]
+
+    @action.setter
+    def action(self, action):
+        # type: (Union[str, ConsentAction]) -> None
+        self["action"] = ConsentAction(action)
 
     @property
     def expire(self):
-        dt = self["expire"]
-        return datetime.fromisoformat(dt) if dt else None
+        # type: () -> Optional[datetime]
+        return dict.__getitem__(self, "expire")
 
     @expire.setter
     def expire(self, expire):
+        # type: (Optional[Union[str, datetime]]) -> None
+        if expire is None:
+            self["expire"] = None
+            return
         if not isinstance(expire, (str, datetime)):
             raise TypeError(f"Invalid expire type: {type(expire)!s}")
         if isinstance(expire, str):
             expire = dt_parser.parse(expire)
-        self["expire"] = expire.isoformat()
+        self["expire"] = expire
+
+    @property
+    def type(self):
+        # type: () -> ConsentType
+        return self["type"]
+
+    @type.setter
+    def type(self, consent_type):
+        # type: (Union[str, ConsentType]) -> None
+        self["type"] = ConsentType(consent_type)
+
+    consent_type = type
 
 
 class ConsentChange(WithDatetime):
@@ -411,11 +439,19 @@ class Blockchain(Base):
         return self["updated"]
 
     def json(self, *_, detail=False, **__):
-        # type: (Any, Any) -> JSON
+        # type: (Any, bool, Any) -> JSON
         return {
             "id": str(self.id),
             "updated": self.updated.isoformat(),
             "blocks": [block.json() if detail else str(block.id) for block in self.blocks]
+        }
+
+    def data(self, *_, detail=False, **__):
+        # type: (Any, bool, Any) -> Dict[str, Union[uuid.UUID, datetime, Union[Block, uuid.UUID]]]
+        return {
+            "id": self.id,
+            "updated": self.updated,
+            "blocks": self.blocks if detail else [block.id for block in self.blocks]
         }
 
     @property
