@@ -1,9 +1,9 @@
 import uuid
 from typing import TYPE_CHECKING, TypeVar
 
-from flask import Blueprint, abort, jsonify, request
+from flask import abort, jsonify, request
 from flask import current_app as APP  # noqa
-from flask_apispec import doc, use_kwargs
+from flask_smorest import Blueprint
 
 from blockchain.api import schemas
 from blockchain.utils import get_links
@@ -45,9 +45,9 @@ def get_node(node_ref):
 
 
 @NODES.route("/", methods=["GET"])
-@doc(description="Registered nodes which this blockchain node will resolve consensus against.", tags=["Nodes"])
-@use_kwargs(schemas.DetailQuery, location="query")
-@use_kwargs(schemas.SyncQuery, location="query")
+@NODES.doc(summary="Registered nodes which this blockchain node will resolve consensus against.", tags=["Nodes"])
+@NODES.arguments(schemas.DetailQuery, location="query")
+@NODES.arguments(schemas.SyncQuery, location="query")
 def list_nodes(detail=False, sync=False):
     # type: (bool, bool) -> APP.response_class
     links = get_links(NODES)
@@ -60,7 +60,7 @@ def list_nodes(detail=False, sync=False):
 
 
 @NODES.route("/", methods=["POST"])
-@doc(description="Register a new blockchain node to resolve consensus against.", tags=["Nodes"])
+@NODES.doc(summary="Register a new blockchain node to resolve consensus against.", tags=["Nodes"])
 def register_nodes():
     # type: () -> APP.response_class
     values = request.get_json()
@@ -88,7 +88,7 @@ def register_nodes():
 
 
 @NODES.route(f"/{NODE_REF}", methods=["GET"])
-@doc(description="Obtain synchronization details of a registered blockchain node.", tags=["Nodes"])
+@NODES.doc(summary="Obtain synchronization details of a registered blockchain node.", tags=["Nodes"])
 def view_node(node_ref):
     # type: (AnyRef) -> APP.response_class
     node = get_node(node_ref)

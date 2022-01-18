@@ -1,6 +1,6 @@
 # Blockchain
 
-Explore extensions and applicability of Blockchain technology to guarantee integrity and traceability of private data. 
+User consents management using Blockchain technology to guarantee integrity and traceability of private data.
 
 Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/PATR/MODL+-+EvalBlockchain)
 > Évaluer l’utilisation de la technologie blockchain pour garantir l’intégrité et la traçabilité des données privées.

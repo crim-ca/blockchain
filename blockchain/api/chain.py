@@ -3,19 +3,18 @@ from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 import requests
-from flask import Blueprint, abort, jsonify, request, url_for
+from flask import abort, jsonify, request, url_for
 from flask import current_app as APP  # noqa
-from flask_apispec import doc, marshal_with, use_kwargs
+from flask_smorest import Blueprint
 
 from blockchain.api import schemas
-from blockchain.impl import AttributeDict, Blockchain, ConsentChange
+from blockchain.impl import AttributeDict, Block, Blockchain, ConsentChange, Node
 from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
     from typing import List, Optional, Tuple, Union
 
     from blockchain import AnyRef, AnyUUID, Link
-    from blockchain.impl import Block, Node
 
 
 LOGGER = get_logger(__name__)
@@ -108,8 +107,8 @@ def check_blockchain_exists(node, chain_id):
 
 
 @CHAIN.route("/", methods=["GET"])
-@doc(description="Obtain list of available blockchains on this node.", tags=["Chains"])
-@use_kwargs(schemas.ResolveQuery, location="query")
+@CHAIN.doc(summary="Obtain list of available blockchains on this node.", tags=["Chains"])
+@CHAIN.arguments(schemas.ResolveQuery, location="query")
 def list_chains(resolve=False):
     # type: (bool) -> APP.response_class
     chains = set(APP.blockchains)
@@ -145,21 +144,23 @@ def list_chains(resolve=False):
 
 
 @CHAIN.route(f"/{CHAIN_ID}", methods=["GET"])
-@doc(description="Obtain the list of blocks that constitute a blockchain.", tags=["Chains"])
+@CHAIN.doc(summary="Obtain the list of blocks that constitute a blockchain.", tags=["Chains"])
+@CHAIN.response(200, schemas.ChainResponse, description="Blockchain information.")
 def view_chain(chain_id):
     # type: (uuid.UUID) -> APP.response_class
     chain = get_chain(chain_id)
-    response = {
-        "chain": chain.json(detail=False),
+    data = {
+        "chain": chain.data(detail=False),
         "length": len(chain.blocks),
         "links": get_chain_links(chain_id)
     }
-    return jsonify(response)
+    return data
 
 
+# FIXME: marshal_with, cannot do oneOf with flask_apispec<5
 @CHAIN.route(f"/{CHAIN_ID}/blocks", methods=["GET"])
-@doc(description="Obtain full details of blocks that constitute a blockchain.", tags=["Chains", "Blocks"])
-@use_kwargs(schemas.DetailQuery, location="query")
+@CHAIN.doc(summary="Obtain full details of blocks that constitute a blockchain.", tags=["Chains", "Blocks"])
+@CHAIN.arguments(schemas.DetailQuery, location="query")
 def list_blocks(chain_id, detail=False):
     # type: (uuid.UUID, bool) -> APP.response_class
     chain = get_chain(chain_id)
@@ -169,17 +170,22 @@ def list_blocks(chain_id, detail=False):
 
 
 @CHAIN.route(f"/{CHAIN_ID}/blocks/{BLOCK_REF}", methods=["GET"])
-@doc(description="Obtain the details of a specific block within a blockchain.", tags=["Chains", "Blocks"])
+@CHAIN.doc(summary="Obtain the details of a specific block within a blockchain.", tags=["Chains", "Blocks"])
+@CHAIN.response(schemas.ChainBlockResponse, 200, description="Detail of a block within a chain.")
 def chain_block(chain_id, block_ref):
     # type: (uuid.UUID, AnyRef) -> APP.response_class
     chain = get_chain(chain_id)
     block = get_block(block_ref, chain)
-    data = AttributeDict({"chain": chain.id, "block": block})
-    return jsonify(data.json())
+    data = AttributeDict({
+        "message": "Listing of block details successful.",
+        "chain": chain.id,
+        "block": block
+    })
+    return data, 200
 
 
 @CHAIN.route(f"/{CHAIN_ID}/mine", methods=["GET"])
-@doc(description="Mine a blockchain to generate a new block.", tags=["Chains"])
+@CHAIN.doc(summary="Mine a blockchain to generate a new block.", tags=["Chains"])
 def mine(chain_id):
     # type: (AnyUUID) -> APP.response_class
 
@@ -202,7 +208,7 @@ def mine(chain_id):
     APP.db.save_chain(blockchain)
 
     data = AttributeDict({
-        "message": "New Block Forged",
+        "message": "New block forged.",
         "index": block["index"],
         "transactions": block["transactions"],
         "proof": block["proof"],
@@ -212,7 +218,7 @@ def mine(chain_id):
 
 
 @CHAIN.route(f"/{CHAIN_ID}/transactions", methods=["POST"])
-@doc(description="Create a new transaction on the blockchain.", tags=["Chains"])
+@CHAIN.doc(summary="Create a new transaction on the blockchain.", tags=["Chains"])
 def new_transaction(chain_id):
     # type: (AnyUUID) -> APP.response_class
     values = request.get_json()
@@ -232,7 +238,8 @@ def new_transaction(chain_id):
 
 
 @CHAIN.route(f"/{CHAIN_ID}/consents", methods=["GET"])
-@doc("Obtain consents status of a given blockchain.", tags=["Chains", "Consents"])
+@CHAIN.doc(summary="Obtain consents status of a given blockchain.", tags=["Chains", "Consents"])
+@CHAIN.response(schemas.ListConsentsResponse, 200, description="List of latest consents in the blockchain.")
 def view_consents(chain_id):
     # type: (AnyUUID) -> APP.response_class
     chain = get_chain(chain_id)
@@ -252,12 +259,13 @@ def view_consents(chain_id):
         "changes": history,
         "consents": consents,
     })
-    return jsonify(data.json())
+    return data, 200
 
 
 @CHAIN.route(f"/{CHAIN_ID}/consents", methods=["POST"])
-@doc(description="Create a new consent change to be registered on the blockchain.", tags=["Chains", "Consents"])
-@use_kwargs(schemas.ConsentBody, location="json")
+@CHAIN.doc(summary="Create a new consent change to be registered on the blockchain.", tags=["Chains", "Consents"])
+@CHAIN.arguments(schemas.ConsentRequestBody, location="json")
+@CHAIN.response(schemas.UpdateConsentResponse, 201, description="Updated consents with new block in chain.")
 def update_consent(chain_id, action, consent, expire=None):
     # type: (AnyUUID, ConsentAction, bool, Optional[datetime]) -> APP.response_class
 
@@ -279,24 +287,23 @@ def update_consent(chain_id, action, consent, expire=None):
     block = blockchain.new_block(proof, previous_hash)
     APP.db.save_chain(blockchain)
 
-    response = AttributeDict({
-        "message": "New Block Forged",
+    data = AttributeDict({
+        "message": "New block forged.",
         "index": block["index"],
         "transactions": block["transactions"],
         "consents": block["consents"],
         "proof": block["proof"],
         "previous_hash": block["previous_hash"],
     })
-    return jsonify(response.json())
+    return data, 201
 
 
-# FIXME: apply schema validation to fix invalid values
 @CHAIN.route(f"/{CHAIN_ID}/resolve", methods=["GET"])
-@doc(description="Resolve a blockchain with other registered nodes with consensus.", tags=["Chains", "Nodes"])
-@marshal_with(schemas.ResolveChain, 200,
-              description="Resolved blockchain following consensus with other nodes.", apply=False)
-@marshal_with(schemas.ResolveChain, 201,
-              description="Generated missing blockchain retrieved from other nodes.", apply=False)
+@CHAIN.doc(summary="Resolve a blockchain with other registered nodes with consensus.", tags=["Chains", "Nodes"])
+@CHAIN.response(schemas.ResolveChainResponse, 200,
+                description="Resolved blockchain following consensus with other nodes.")
+@CHAIN.response(schemas.ResolveChainResponse, 201,
+                description="Generated missing blockchain retrieved from other nodes.")
 def consensus(chain_id):
     # type: (uuid.UUID) -> APP.response_class
     blockchain = get_chain(chain_id, allow_missing=True)
@@ -324,7 +331,7 @@ def consensus(chain_id):
     else:
         message = "Blockchain is authoritative."
     data = AttributeDict({
-        "description": message,
+        "message": message,
         "updated": blockchain.updated,
         "resolved": generated or replaced,
         "validated": bool(len(validated)),
@@ -333,4 +340,4 @@ def consensus(chain_id):
     })
     code = 201 if generated else 200
     APP.db.save_chain(blockchain)
-    return data.json(), code
+    return data, code

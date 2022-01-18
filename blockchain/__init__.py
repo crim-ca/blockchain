@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     AnyUUID = Union[UUID, str]
     AnyRef = Union[str, int, UUID]
-    Link = TypedDict("Link", {"href": str, "rel": str, "title": str})
+    Link = TypedDict("Link", {"href": str, "rel": str, "title": str}, total=False)
 
 try:
     from importlib_metadata import metadata
