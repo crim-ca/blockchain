@@ -83,6 +83,8 @@ async def openapi_schema(
     oas = app.openapi()
     if (f or format) == "yaml":
         data = jsonable_encoder(oas)
+        # FIXME: patch contact URL (https://github.com/tiangolo/fastapi/issues/1071)
+        data["info"]["contact"]["url"] = str(data["info"]["contact"]["url"])
         text = yaml.safe_dump(data)
         resp = Response(text, media_type="text/plain; charset=utf-8")
         return resp
