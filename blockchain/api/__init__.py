@@ -1,10 +1,13 @@
-import os
 import importlib
-from typing import List, Optional
+import os
+from typing import TYPE_CHECKING, List, Optional
 from typing_extensions import Literal
 from urllib.parse import urljoin
 
-from fastapi import APIRouter, Request
+import yaml
+from fastapi import APIRouter, Request, Response
+from fastapi.encoders import jsonable_encoder
+from pydantic import AnyUrl
 
 from blockchain import __meta__
 from blockchain.api import schemas
@@ -15,6 +18,9 @@ from blockchain.api.block import BLOCK
 from blockchain.api.chain import CHAIN
 from blockchain.api.nodes import NODES
 from blockchain.ui.views import MAKO, VIEWS
+
+if TYPE_CHECKING:
+    from blockchain.app import BlockchainWebApp
 
 MAIN = APIRouter()
 
@@ -53,12 +59,31 @@ async def frontpage(request: Request):
 
 @MAIN.get("/schema", tags=["API"], responses={
     200: {
-        "description": "Obtain the OpenAPI schema of supported requests."
+        "description": "Obtain the OpenAPI schema of supported requests.",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/3.0.3/schemas/v3.0/schema.json"
+                }
+            },
+            "text/plain": {
+               "schema": {
+                   "$ref": "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/3.0.3/schemas/v3.0/schema.yaml"
+               }
+            }
+        }
     }
 })
-async def openapi_schema(format: Literal["json", "yaml"] = "json"):
-    if format == "yaml":
-        resp = Response(API.spec.to_yaml())
-        resp.mimetype = "text/plain"
+async def openapi_schema(
+    request: Request,
+    f: Optional[Literal["json", "yaml"]] = schemas.FormatQuery(None),
+    format: Literal["json", "yaml"] = schemas.FormatQuery("json"),
+):
+    app = request.app  # type: "BlockchainWebApp"
+    oas = app.openapi()
+    if (f or format) == "yaml":
+        data = jsonable_encoder(oas)
+        text = yaml.safe_dump(data)
+        resp = Response(text, media_type="text/plain; charset=utf-8")
         return resp
-    return API.spec.to_dict()
+    return oas

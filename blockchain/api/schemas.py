@@ -19,6 +19,12 @@ def DetailQuery(*args, description="Obtain detailed description of the represent
     return Query(*args, description=description, **kwargs)
 
 
+def FormatQuery(*args,  # noqa
+                description="Format specifier for the output representation (f/format interchangeable).",
+                **kwargs):
+    return Query(*args, description=description, **kwargs)
+
+
 class HTTPErrorResponse(BaseModel):
     code: int
     name: str

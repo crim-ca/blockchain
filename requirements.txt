@@ -8,5 +8,6 @@ pydantic
 uvicorn[standard]
 
 python-dateutil
+pyyaml
 requests
 webargs
