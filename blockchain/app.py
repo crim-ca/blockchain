@@ -47,7 +47,16 @@ APP = BlockchainWebApp(
     },
     docs_url="/api",
     openapi_url="/json",
+    openapi_tags=[
+        {"name": "API", "description": "General metadata and information about the API."},
+        {"name": "Blocks", "description": "Operations related to blocks that compose the chains."},
+        {"name": "Chains", "description": "Operations related to blockchains that hold user-data consents."},
+        {"name": "Consents", "description": "Management of user consents over owned data."},
+        {"name": "Nodes", "description": "Management of distinct nodes for consensus resolution of blockchains."},
+        {"name": "UI", "description": "Visualization endpoints of the data represented in blockchains."},
+    ]
 )
+APP.openapi_version = "3.0.3"
 APP.include_router(BLOCK)
 APP.include_router(CHAIN)
 APP.include_router(MAIN)
