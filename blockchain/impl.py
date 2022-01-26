@@ -17,6 +17,20 @@ from blockchain.utils import compute_hash, get_logger
 
 LOGGER = get_logger(__name__)
 
+# https://www.iana.org/assignments/media-types/media-types.xhtml
+KNOWN_MEDIA_TYPES = frozenset([
+    "application",
+    "audio",
+    "font",
+    "example",
+    "image",
+    "message",
+    "model",
+    "multipart",
+    "text",
+    "video",
+])
+
 
 class Base(AttributeDict, abc.ABC):
     """
@@ -142,6 +156,76 @@ class ConsentType(EnumNameHyphenCase):
     EXPIRED = auto()  # when last consent was still granted, but is now passed specified expiration datetime
 
 
+class DataType(EnumNameHyphenCase):
+    TEXT = auto()
+    AUDIO = auto()
+    IMAGE = auto()
+    VIDEO = auto()
+    DOCUMENT = auto()
+    MESSAGE = auto()
+    OTHER = auto()
+
+
+class SubSystem(Base):
+    def __init__(self,
+                 data_type: Union[str, DataType],
+                 data_description: Optional[str],
+                 media_type: Optional[str],
+                 *args: Any,
+                 **kwargs: Any,
+                 ) -> None:
+        dict.__setattr__(self, "media_type", media_type)            # attempt auto-resolve data type
+        if self.data_type != data_type and data_type is not None:   # update if not resolved or different
+            self.data_type = data_type
+        dict.__setattr__(self, "data_description", data_description)
+        super(SubSystem, self).__init__(*args, **kwargs)
+
+    @property
+    def data_type(self) -> DataType:
+        return self["data_type"]
+
+    @data_type.setter
+    def data_type(self, data_type: Union[str, DataType]) -> None:
+        try:
+            data_type = DataType(data_type)
+        except ValueError:
+            data_type = DataType.OTHER
+        self["data_type"] = data_type
+
+    @property
+    def data_description(self) -> Optional[str]:
+        desc = self["data_description"]
+        if not isinstance(desc, str):
+            return None
+        return desc
+
+    @data_description.setter
+    def data_description(self, data_description: Optional[str]):
+        if isinstance(data_description, str) or data_description is None:
+            self["data_description"] = data_description
+
+    @property
+    def media_type(self) -> Optional[str]:
+        desc = self["media_type"]
+        if not isinstance(desc, str):
+            return None
+        return desc
+
+    @media_type.setter
+    def media_type(self, media_type: Optional[str]):
+        if media_type is None:
+            self["media_type"] = media_type = "plain/text"
+        elif isinstance(media_type, str):
+            media_type = media_type.lower()
+            if "/" in media_type and media_type.split("/")[0] in KNOWN_MEDIA_TYPES:
+                self["media_type"] = media_type
+            else:
+                self["media_type"] = "plain/text"
+            media_type = self["media_type"]
+        if self.data_type is None:
+            self.data_type = media_type.split("/")[0]
+
+
 class Consent(WithDatetime):
     def __init__(self,
                  action: Union[str, ConsentAction],
@@ -149,12 +233,14 @@ class Consent(WithDatetime):
                  *args: Any,
                  expire: Optional[Union[str, datetime]] = None,
                  consent_type: Union[str, ConsentType] = ConsentType.CREATED,
+                 subsystems: Optional[List[SubSystem]] = None,
                  **kwargs: Any,
                  ) -> None:
         dict.__setattr__(self, "action", action)
         self["consent"] = consent
         dict.__setattr__(self, "expire", expire)
         dict.__setattr__(self, "type", kwargs.pop("type", None) or consent_type)  # bw-compat & reload from JSON
+        dict.__setattr__(self, "subsystems", subsystems or [])
         super(Consent, self).__init__(*args, **kwargs)
 
     def __repr__(self):
@@ -194,8 +280,19 @@ class Consent(WithDatetime):
 
     consent_type = type
 
+    @property
+    def subsystems(self) -> List[SubSystem]:
+        return self["subsystems"]
+
+    @subsystems.setter
+    def subsystems(self, subsystems: List[Union[SubSystem, JSON]]):
+        self["subsystems"] = [SubSystem(**sub) if not isinstance(sub, SubSystem) else sub for sub in subsystems]
+
 
 class ConsentChange(WithDatetime):
+    """
+    Holds modified consents and generates complete consents history from them.
+    """
     def __init__(self,
                  *args: Any,
                  consents: Optional[Iterable[Union[Consent, JSON]]] = None,
