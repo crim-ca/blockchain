@@ -7,7 +7,9 @@ Changes
 `Unreleased <https://github.com/crim-ca/blockchain/tree/master>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Add generation of OpenAPI schema per version to documentation directory.
+* Remove the need to supply the ``--secret`` argument when creating the genesis block using ``--new`` argument.
+* Fix application imports causing circular references between schemas and blockchain class implementations.
 
 `1.0.0 <https://github.com/crim-ca/blockchain/tree/1.0.0>`_ (2022-01-25)
 ---------------------------------------------------------------------------------------------------------------

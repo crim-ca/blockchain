@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 from fastapi import APIRouter, Request
 
-from blockchain.api import schemas
 
 if TYPE_CHECKING:
+    from blockchain.api import schemas
     from blockchain.app import BlockchainWebApp
 
 
