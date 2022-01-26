@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://github.com/crim-ca/blockchain/tree/master>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`1.0.0 <https://github.com/crim-ca/blockchain/tree/1.0.0>`_ (2022-01-25)
+---------------------------------------------------------------------------------------------------------------
+
 * Refactor code using ``FastAPI`` framework for better schema validation and generation in OpenAPI documentation.
 * Add required ``--secret`` option that sets the Blockchain node secret for hashing blocks.
 * Fix warning about potential *Length Extension Attacks* related to applied hashing method
