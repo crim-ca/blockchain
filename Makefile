@@ -11,6 +11,7 @@ APP_NAME    := blockchain
 APP_VERSION := 0.11.2
 APP_DB_DIR  ?= /tmp/blockchain
 APP_PORT    ?= 5000
+APP_SECRET  ?= secret
 
 # guess OS (Linux, Darwin,...)
 OS_NAME  := $(shell uname -s 2>/dev/null || echo "unknown")
@@ -91,11 +92,9 @@ else
 endif
 
 # docker
-MAGPIE_DOCKER_REPO   := pavics/magpie
-MAGPIE_DOCKER_TAG    := $(MAGPIE_DOCKER_REPO):$(APP_VERSION)
-MAGPIE_LATEST_TAG	 := $(MAGPIE_DOCKER_REPO):latest
-TWITCHER_DOCKER_REPO := pavics/twitcher
-TWITCHER_DOCKER_TAG  := $(TWITCHER_DOCKER_REPO):magpie-$(APP_VERSION)
+APP_DOCKER_REPO := blockchain
+APP_DOCKER_TAG  := $(APP_DOCKER_REPO):$(APP_VERSION)
+APP_LATEST_TAG  := $(APP_DOCKER_REPO):latest
 
 .DEFAULT_GOAL := help
 
@@ -153,8 +152,7 @@ info:		## display make information
 	@echo "  Application Version    $(APP_VERSION)"
 	@echo "  Download Cache         $(DOWNLOAD_CACHE)"
 	@echo "  Test Reports           $(REPORTS_DIR)"
-	@echo "  Docker Tag (magpie)    $(MAGPIE_DOCKER_TAG)"
-	@echo "  Docker Tag (twitcher)  $(TWITCHER_DOCKER_TAG)"
+	@echo "  Docker Tag             $(APP_DOCKER_TAG)"
 
 ## --- Cleanup targets --- ##
 
@@ -222,7 +220,7 @@ _force_docs:
 .PHONY: docs-only
 docs-only: _force_docs $(DOC_LOCATION) 	## generate documentation without requirements installation or cleanup
 
-# NOTE: we need almost all base dependencies because magpie package needs to be parsed to generate OpenAPI
+# NOTE: we need almost all base dependencies because package needs to be parsed to generate OpenAPI
 .PHONY: docs
 docs: install-docs install-pkg clean-docs docs-only	## generate Sphinx HTML documentation, including API docs
 
@@ -302,7 +300,11 @@ start: install start-app  ## start application instance with gunicorn after inst
 start-app: stop		## start application instance with single worker
 	@echo "Starting $(APP_NAME)..."
 	@test -d "$(APP_DB_DIR)" && '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
-	@bash -c '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py" --port $(APP_PORT) --db "$(APP_DB_DIR)" &'
+	@bash -c '$(CONDA_CMD) \
+		python "$(APP_ROOT)/blockchain/app.py" \
+		 	--secret ${APP_SECRET} \
+		 	--port $(APP_PORT) \
+		 	--db "$(APP_DB_DIR)" &'
 	@sleep 5
 	@curl -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)" | grep '"code": 200'
 
@@ -318,50 +320,17 @@ stat: 		## display processes with PID(s) of gunicorn instance(s) running the app
 
 .PHONY: docker-info
 docker-info:	## tag version of docker image for build/push
-	@echo "Magpie image will be built, tagged and pushed as:"
-	@echo "$(MAGPIE_DOCKER_TAG)"
-	@echo "MagpieAdapter image will be built, tagged and pushed as:"
-	@echo "$(TWITCHER_DOCKER_TAG)"
-
-.PHONY: docker-build-adapter
-docker-build-adapter:	## build only docker image for Magpie application
-	docker build "$(APP_ROOT)" -t "$(TWITCHER_DOCKER_TAG)" -f Dockerfile.adapter
-
-.PHONY: docker-build-magpie
-docker-build-magpie:	## build only docker image of MagpieAdapter for Twitcher
-	docker build "$(APP_ROOT)" -t "$(MAGPIE_LATEST_TAG)"
-	docker tag "$(MAGPIE_LATEST_TAG)" "$(MAGPIE_DOCKER_TAG)"
+	@echo "Image will be built as:"
+	@echo "$(APP_DOCKER_TAG)"
 
 .PHONY: docker-build
-docker-build: docker-build-magpie docker-build-adapter	## build docker images for Magpie application and MagpieAdapter for Twitcher
-
-.PHONY: docker-push-adapter
-docker-push-adapter: docker-build-adapter	## push only built docker image of MagpieAdapter for Twitcher
-	docker push "$(TWITCHER_DOCKER_TAG)"
-
-.PHONY: docker-push-magpie
-docker-push-magpie: docker-build-magpie		## push only built docker image for Magpie application
-	docker push "$(MAGPIE_DOCKER_TAG)"
-
-.PHONY: docker-push
-docker-push: docker-push-magpie docker-push-adapter	 ## push built docker images for Magpie application and MagpieAdapter for Twitcher
-
-DOCKER_TEST_COMPOSES := -f "$(APP_ROOT)/ci/docker-compose.smoke-test.yml"
-.PHONY: docker-test
-docker-test: docker-build-magpie	## execute a smoke test of the built image for Magpie application (validate that it boots)
-	@echo "Smoke test of built application docker image"
-	docker-compose $(DOCKER_TEST_COMPOSES) up -d
-	sleep 5
-	curl localhost:2001 | grep "Magpie Administration"
-	docker-compose $(DOCKER_TEST_COMPOSES) stop
-
-.PHONY: docker-test-stop
-docker-test-stop:  ## explicitly stop any running instance that could remain from 'docker-test' target
-	docker-compose $(DOCKER_TEST_COMPOSES) stop
+docker-build: ## build docker image
+	docker build "$(APP_ROOT)" -t "$(APP_LATEST_TAG)"
+	docker tag "$(APP_LATEST_TAG)" "$(APP_DOCKER_TAG)"
 
 .PHONY: docker-clean
 docker-clean: 	## remove any leftover images from docker target operations
-	docker rmi $(docker images -f "reference=$(MAGPIE_DOCKER_REPO)" -q)
+	docker rmi $(docker images -f "reference=$(APP_DOCKER_REPO)" -q)
 	docker-compose $(DOCKER_TEST_COMPOSES) down
 
 ## --- Static code check targets ---

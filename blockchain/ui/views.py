@@ -1,102 +1,139 @@
-from flask import Blueprint, Response, request, url_for
-from flask import current_app as APP  # noqa
-from flask_apispec import doc
-from flask_mako import render_template
-from typing import TYPE_CHECKING
+import os.path
+
+from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
-from blockchain import __meta__
-from blockchain.api.chain import CHAIN_ID, get_chain, get_chain_links, view_consents
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi_mako import FastAPIMako  # noqa
+from pydantic import UUID4
+
+import blockchain
+from blockchain import AnyUUID, JSON, __meta__
+from blockchain.api import schemas
+from blockchain.api.chain import get_chain, get_chain_links, view_consents
+from blockchain.impl import Blockchain
 from blockchain.utils import get_links
 
-if TYPE_CHECKING:
-    from typing import List, Optional
 
-    from blockchain import AnyUUID, Link, JSON
-    from blockchain.impl import Blockchain
-
-VIEWS = Blueprint("ui", __name__, url_prefix="/ui")
+VIEWS = APIRouter(prefix="/ui")
+# APP must initialize itself with MAKO afterward since cannot import it here (circular imports)
+MAKO = FastAPIMako()
 
 
-def render_template_meta(template, **data):
-    data["node_id"] = APP.node.id
-    data["node_url"] = APP.node.url
+def add_metadata(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
+    data["node_id"] = request.app.node.id
+    data["node_url"] = request.app.node.url
     data["version"] = __meta__["version"]
-    return render_template(template, **data)
+    return data
 
 
-def get_chain_shortcuts(chain_id):
-    # type: (AnyUUID) -> List[Link]
+def get_chain_shortcuts(request: Request, chain_id: AnyUUID) -> List[schemas.Link]:
     """
     Obtain all UI shortcuts to other pages relevant for the given blockchain.
     """
     chain_id = str(chain_id)
     shortcuts = [
-        {"rel": "blocks", "href": url_for("ui.view_blocks", chain_id=chain_id)},
-        {"rel": "consents", "href": url_for("ui.display_consents", chain_id=chain_id)},
+        {"rel": "blocks", "href": request.url_for("view_blocks", chain_id=chain_id)},
+        {"rel": "consents", "href": request.url_for("display_consents", chain_id=chain_id)},
     ]
     for link in shortcuts:
-        link["href"] = urljoin(request.url, link["href"])
+        link["href"] = urljoin(str(request.url), link["href"])
         link["title"] = link["rel"].capitalize()
-    return shortcuts
+    return shortcuts  # type: ignore
 
 
-def get_chain_info(chain, strip_shortcut=None):
-    # type: (Blockchain, Optional[str]) -> JSON
+def get_chain_info(request: Request, chain: Blockchain, strip_shortcut: Optional[str] = None) -> JSON:
     """
     Obtain metadata details about a resolved chain ID for rendering in the UI.
     """
     chain_id = str(chain.id)
-    shortcuts = get_chain_shortcuts(chain_id)
+    shortcuts = get_chain_shortcuts(request, chain_id)
     if strip_shortcut is not None:
         strip_shortcut = strip_shortcut.capitalize()
         shortcuts = list(filter(lambda s: s["title"] != strip_shortcut, shortcuts))
     return {"count": len(chain.blocks), "chain": chain_id, "shortcuts": shortcuts}
 
 
-@VIEWS.route("/", methods=["GET"])
-@doc("Display shortcuts to other pages.", tags=["UI"])
-def shortcut_navigate():
-    links = get_links(VIEWS, self=False)
+@VIEWS.get(
+    "/",
+    tags=["UI"],
+    summary="Display shortcuts to other pages.",
+    response_class=HTMLResponse,
+)
+@MAKO.template("ui/templates/view_shortcuts.mako")
+async def shortcut_navigate(request: Request):
+    links = get_links(request, VIEWS, self=False)
     for link in links:
         link["title"] = link["rel"].replace("_", " ").capitalize()
-    data = {"links": links, "nodes": APP.nodes}
-    return Response(render_template_meta("ui/templates/view_shortcuts.mako", **data))
+    data = {"links": links, "nodes": request.app.nodes}
+    return add_metadata(request, data)
 
 
-@VIEWS.route("/chains", methods=["GET"])
-@doc("Display registered blockchains on the current node.", tags=["Chains", "UI"])
-def view_chains():
+@VIEWS.get(
+    "/chains",
+    tags=["Chains", "UI"],
+    summary="Display registered blockchains on the current node.",
+    response_class=HTMLResponse,
+    responses={
+        200: {
+            "description": "Blockchains registered in the current node."
+        }
+    },
+)
+@MAKO.template("ui/templates/view_chains.mako")
+async def view_chains(request: Request):
     data = {
         "chains": [
             {
                 "id": str(chain_id),
-                "links": get_chain_links(chain_id),
-                "shortcuts": get_chain_shortcuts(chain_id)
-            } for chain_id in APP.blockchains
+                "links": get_chain_links(request, chain_id),
+                "shortcuts": get_chain_shortcuts(request, chain_id)
+            } for chain_id in request.app.blockchains
         ]
     }
     for chain in data["chains"]:
         # replace "self" by "Chain"
         chain["links"][0]["rel"] = "Chain"
         chain["links"][0]["title"] = "Chain"
-    return Response(render_template_meta("ui/templates/view_chains.mako", **data))
+    return add_metadata(request, data)
 
 
-@VIEWS.route(f"/chains/{CHAIN_ID}/blocks", methods=["GET"])
-@doc("Display block details within a blockchain.", tags=["Blocks", "UI"])
-def view_blocks(chain_id):
-    chain = get_chain(chain_id)
+@VIEWS.get(
+    "/chains/{chain_id}/blocks",
+    tags=["Blocks", "UI"],
+    summary="Display block details within a blockchain.",
+    response_class=HTMLResponse,
+    responses={
+        200: {
+            "description": "List of block details in blockchain."
+        }
+    }
+)
+@MAKO.template("ui/templates/view_blocks.mako")
+async def view_blocks(request: Request, chain_id: UUID4):
+    chain = get_chain(request.app, chain_id)
     blocks = [block.json() for block in chain.blocks]
     data = {"blocks": blocks}
-    data.update(get_chain_info(chain, strip_shortcut="blocks"))
-    return Response(render_template_meta("ui/templates/view_blocks.mako", **data))
+    data.update(get_chain_info(request, chain, strip_shortcut="blocks"))
+    return add_metadata(request, data)
 
 
-@VIEWS.route(f"/{CHAIN_ID}/consents", methods=["GET"])
-@doc("Display consents status of a given blockchain.", tags=["Consents", "UI"])
-def display_consents(chain_id):
-    chain = get_chain(chain_id)
-    data = view_consents(chain.id).json
-    data.update(get_chain_info(chain, strip_shortcut="consents"))
-    return Response(render_template_meta("ui/templates/view_consents.mako", **data))
+@VIEWS.get(
+    "/{chain_id}/consents",
+    tags=["Consents", "UI"],
+    summary="Display consents status of a given blockchain.",
+    response_class=HTMLResponse,
+    responses={
+        200: {
+            "description": "Consents represented in the blockchain."
+        }
+    }
+)
+@MAKO.template("ui/templates/view_consents.mako")
+async def display_consents(request: Request, chain_id: UUID4):
+    chain = get_chain(request.app, chain_id)
+    data = await view_consents(request, chain.id)
+    data.update(get_chain_info(request, chain, strip_shortcut="consents"))
+    return add_metadata(request, data)
