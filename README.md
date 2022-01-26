@@ -26,34 +26,32 @@ python blockchain/app.py --port 5002 --db file://<custom-directory> --new
 
 4. Run one or more server nodes:
 ```shell
-python blockchain/app.py  # defaults to port 5000, and file storage in "./db" location 
-python blockchain/app.py -p 5001 --db file://<custom-directory>  # loads all "<blockchain-id>/chain.json" in directory
-python blockchain/app.py -p 5002 --db file://<custom-directory>/<id>/chain.json  # loads only that blockchain
-python blockchain/app.py -p 5003 --db file://<custom-directory>/chains.txt  # loads only listed blockchains IDs
-python blockchain/app.py --port 5004 --db <db-impl>://<db-connector>  # use an alternate database implementation
+python blockchain/app.py -s secret -p 5001 --db file://<custom-directory>  # loads all "<blockchain-id>/chain.json" in directory
+python blockchain/app.py -s secret -p 5002 --db file://<custom-directory>/<id>/chain.json  # loads only that blockchain
+python blockchain/app.py -s secret -p 5003 --db file://<custom-directory>/chains.txt  # loads only listed blockchains IDs
+python blockchain/app.py -s secret --port 5004 --db <db-impl>://<db-connector>  # use an alternate database implementation
 ```
 
 When running server nodes, any predefined set of nodes within a shared network should be provided directly 
 with the ``--nodes='<node1-url>,<node2-url>,...'`` option to allow consensus resolution between nodes.
 Otherwise, nodes can be registered after startup using the relevant API endpoints.
 
-Alternatively to above calling method of the web application that starts a single listener (useful for debugging), 
-running using ``uvicorn`` is better for servers to employ multi-worker nodes that allow answering to more requests 
-in parallel:
+When running the above commands to start a server node, ``uvicorn`` ASGI runner is automatically called to serve the
+Web Application. Any additional parameters supported by ``uvicorn`` can be specified on the command line.
+For example, timeout controls and workers can be configured as follows. 
 
 ```shell
-uvicorn \
-  "blockchain.app:run(host='<public-ip>', port=5001, db='file://<custom-directory>', nodes='0.0.0.0:5002,0.0.0.0:5003')" \
-  --host 0.0.0.0 \
-  --port 5001 \
-  --workers 4
+python blockchain/app.py \
+  --db "file://<custom-directory>" \
+  --secret 'blockchain-1' \
+  -N "0.0.0.0:5002" -N "0.0.0.0:5003" -N "0.0.0.0:5004" \
+  --host "0.0.0.0" \
+  --port 5001 \ 
+  --workers 20 \ 
+  --timeout-keep-alive 10
 ```
 
-The parameters normally provided as CLI options when calling ``python`` must be passed directly to the ``run`` function 
-when using ``uvicorn`` ASGI runner since it does not allow additional parameters as input 
-(options are specific to ``uvicorn``). The ``--bind`` parameter should use ``0.0.0.0`` to ensure proper reception of
-requests from any endpoints, regardless of the exposed IP by the server. This will allow connecting to the web 
-application both locally (``localhost``) and remotely (exposed URL of the server hosting this service node).   
+The CLI will automatically handle and redirect relevant parameters for the blockchain and the ASGI runner respectively.  
 
 5. Once started, refer to the following endpoints for OpenAPI requests and details:
 
@@ -81,21 +79,21 @@ Follow the instructions below to create a local Docker container:
 2. Build the docker container
 
 ```shell
-docker build -t blockchain .
+docker build -t blockchain:0.11.2 .
 ```
 
 3. Run the container
 
 ```shell
-docker run --rm -p 80:5000 blockchain
+docker run --rm -p 80:5000 blockchain:0.11.2 <blockchain-parameters>
 ```
 
 4. To add more instances, vary the public port number before the colon:
 
 ```shell
-docker run --rm -p 81:5000 blockchain
-docker run --rm -p 82:5000 blockchain
-docker run --rm -p 83:5000 blockchain
+docker run --rm -p "81:5000" blockchain:0.11.2 <blockchain-parameters>
+docker run --rm -p "82:5000" blockchain:0.11.2 <blockchain-parameters>
+docker run --rm -p "83:5000" blockchain:0.11.2 <blockchain-parameters>
 ```
 
 ## Contributing
