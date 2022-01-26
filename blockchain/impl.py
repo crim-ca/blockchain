@@ -13,7 +13,6 @@ from dateutil import parser as dt_parser
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
 
 from blockchain import AnyUUID, JSON
-from blockchain.api import schemas
 from blockchain.utils import compute_hash, get_logger
 
 LOGGER = get_logger(__name__)

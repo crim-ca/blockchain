@@ -205,29 +205,46 @@ clean-docker: docker-clean	## alias for 'docker-clean' target
 
 ## --- Documentation targets --- ##
 
-DOC_LOCATION := $(APP_ROOT)/docs/_build/html/index.html
-$(DOC_LOCATION):
+DOCS_DIR 		:= $(APP_ROOT)/docs
+DOCS_BUILD_DIR 	:= $(DOCS_DIR)/_build
+DOCS_SCHEMA_DIR := $(DOCS_DIR)/schemas
+DOCS_LOCATION 	:= $(DOCS_BUILD_DIR)/html/index.html
+
+$(DOCS_LOCATION):
 	@echo "Building docs..."
 	@bash -c '$(CONDA_CMD) \
 		sphinx-apidoc -o "$(APP_ROOT)/docs/" "$(APP_ROOT)/$(APP_NAME)"; \
 		"$(MAKE)" -C "$(APP_ROOT)/docs" html;'
-	@-echo "Documentation available: file://$(DOC_LOCATION)"
+	@-echo "Documentation available: file://$(DOCS_LOCATION)"
 
 .PHONY: _force_docs
 _force_docs:
-	@-rm -f "$(DOC_LOCATION)"
+	@-rm -f "$(DOCS_LOCATION)"
+
+DOCS := openapi
+DOCS := $(addprefix docs-, $(DOCS))
+DOCS_BUILD := $(DOCS_LOCATION) _force_docs
+
+.PHONY: docs-openapi-only
+docs-openapi-only:
+	@-echo "Building OpenAPI schema documentation"
+	@$(MAKE) -C "$(APP_ROOT)" start-app
+	@mkdir -p "$(DOCS_SCHEMA_DIR)"
+	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)/json" \
+		> "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json"
+	@$(MAKE) -C "$(APP_ROOT)" stop
 
 .PHONY: docs-only
-docs-only: _force_docs $(DOC_LOCATION) 	## generate documentation without requirements installation or cleanup
+docs-only: $(addsuffix -only, $(DOCS)) $(DOCS_BUILD)	## generate documentation without requirements installation or cleanup
 
 # NOTE: we need almost all base dependencies because package needs to be parsed to generate OpenAPI
 .PHONY: docs
-docs: install-docs install-pkg clean-docs docs-only	## generate Sphinx HTML documentation, including API docs
+docs: install-docs install-pkg clean-docs docs-only		## generate Sphinx HTML documentation, including API docs
 
 .PHONY: docs-show
-docs-show: $(DOC_LOCATION)	## display HTML webpage of generated documentation (build docs if missing)
-	@-test -f "$(DOC_LOCATION)" || $(MAKE) -C "$(APP_ROOT)" docs
-	$(BROWSER) "$(DOC_LOCATION)"
+docs-show: $(DOCS_LOCATION)	## display HTML webpage of generated documentation (build docs if missing)
+	@-test -f "$(DOCS_LOCATION)" || $(MAKE) -C "$(APP_ROOT)" docs
+	$(BROWSER) "$(DOCS_LOCATION)"
 
 ## --- Versioning targets --- ##
 
@@ -250,6 +267,9 @@ bump:	## bump version using VERSION specified as user input (make VERSION=<X.Y.Z
 	@[ "${VERSION}" ] || ( echo ">> 'VERSION' is not set"; exit 1 )
 	@-bash -c '$(CONDA_CMD) test -f "$(CONDA_ENV_PATH)/bin/bump2version" || pip install $(PIP_XARGS) bump2version'
 	@-bash -c '$(CONDA_CMD) bump2version $(BUMP_XARGS) --new-version "${VERSION}" patch;'
+
+.PHONY: release
+release: bump docs-openapi-only  ## generate a new release version and related documentation
 
 ## --- Installation targets --- ##
 
@@ -299,14 +319,14 @@ start: install start-app  ## start application instance with gunicorn after inst
 .PHONY: start-app
 start-app: stop		## start application instance with single worker
 	@echo "Starting $(APP_NAME)..."
-	@test -d "$(APP_DB_DIR)" && '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
+	@test -d "$(APP_DB_DIR)" || '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
 	@bash -c '$(CONDA_CMD) \
 		python "$(APP_ROOT)/blockchain/app.py" \
-		 	--secret ${APP_SECRET} \
-		 	--port $(APP_PORT) \
-		 	--db "$(APP_DB_DIR)" &'
+			--secret $(APP_SECRET) \
+			--port $(APP_PORT) \
+			--db "$(APP_DB_DIR)" &'
 	@sleep 5
-	@curl -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)" | grep '"code": 200'
+	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)" 2>&1 | grep "Blockchain Node"
 
 .PHONY: stop
 stop: 		## kill application instance(s) started with gunicorn
@@ -502,9 +522,6 @@ test-custom-only:		## run custom marker tests using SPEC="<marker-specification>
 	@echo "Running custom tests..."
 	@[ "${SPEC}" ] || ( echo ">> 'TESTS' is not set"; exit 1 )
 	@bash -c '$(CONDA_CMD) pytest tests $(TEST_VERBOSITY) -m "${SPEC}" --junitxml "$(APP_ROOT)/tests/results.xml"'
-
-.PHONY: test-docker
-test-docker: docker-test			## alias for 'docker-test' target - WARNING: could build image if missing
 
 # coverage file location cannot be changed
 COVERAGE_FILE     := $(APP_ROOT)/.coverage
