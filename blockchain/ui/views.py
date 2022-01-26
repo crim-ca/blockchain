@@ -134,6 +134,6 @@ async def view_blocks(request: Request, chain_id: UUID4):
 @MAKO.template("ui/templates/view_consents.mako")
 async def display_consents(request: Request, chain_id: UUID4):
     chain = get_chain(request.app, chain_id)
-    data, _ = await view_consents(request, chain.id)
+    data = await view_consents(request, chain.id)
     data.update(get_chain_info(request, chain, strip_shortcut="consents"))
     return add_metadata(request, data)
