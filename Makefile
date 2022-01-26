@@ -225,13 +225,23 @@ DOCS := openapi
 DOCS := $(addprefix docs-, $(DOCS))
 DOCS_BUILD := $(DOCS_LOCATION) _force_docs
 
+.PHONY: docs-openapi-latest
+docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
+	@bash -c "$(CONDA_CMD) \
+		python -c '\
+import json; \
+print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json\")), indent=4))' \
+	" > "$(DOCS_SCHEMA_DIR)/schema.json"
+
+# must install package to apply new version as necessary to be reflected in generated OpenAPI
 .PHONY: docs-openapi-only
-docs-openapi-only:
+docs-openapi-only: install-pkg
 	@-echo "Building OpenAPI schema documentation"
 	@$(MAKE) -C "$(APP_ROOT)" start-app
 	@mkdir -p "$(DOCS_SCHEMA_DIR)"
 	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)/json" \
 		> "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json"
+	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-latest
 	@$(MAKE) -C "$(APP_ROOT)" stop
 
 .PHONY: docs-only

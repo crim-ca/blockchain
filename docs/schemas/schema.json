@@ -6,14 +6,12 @@
         "contact": {
             "name": "Francis Charette-Migneault",
             "url": "https://github.com/crim-ca/blockchain",
-            "email": "francis.charette-migneault@crim.ca",
-            "responsibleDeveloper": "Francis Charette-Migneault",
-            "responsibleOrganization": "CRIM"
+            "email": "francis.charette-migneault@crim.ca"
         },
         "license": {
             "name": "MIT"
         },
-        "version": "1.0.0"
+        "version": "1.1.0"
     },
     "paths": {
         "/blocks/{block_ref}": {
