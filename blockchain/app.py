@@ -128,12 +128,17 @@ def main(**args):
     parser.add_argument("-n", "--node", help="Unique identifier of the node. Generate one if omitted.")
     parser.add_argument("-N", "--nodes", nargs="*", action="append", type=str,
                         help="Node endpoints the blockchains should resolve consensus against.")
-    parser.add_argument("-s", "--secret", required=True, help="Node secret for hash encryption.")
+
+    op_group = parser.add_argument_group(title="Operation", description="Operation to perform.")
+    op_args = op_group.add_mutually_exclusive_group(required=True)
+    op_args.add_argument("-s", "--secret",
+                         help="Secret for hash encryption to employ when starting Node.")
+    op_args.add_argument("--new", action="store_true",
+                         help="Generate the new blockchain with genesis block and exit.")
 
     db_args = parser.add_argument_group(title="Database", description="Database options.")
     db_args.add_argument("--db", "--database", required=True, action=DatabaseTypeAction,
                          help="Database to use. Formatted as [type://connection-detail].")
-    db_args.add_argument("--new", action="store_true", help="Generate the new blockchain with genesis block.")
 
     log_args = parser.add_argument_group(title="Logger", description="Logging control.")
     level_args = log_args.add_mutually_exclusive_group()
@@ -173,7 +178,7 @@ def run(host="0.0.0.0",         # type: str
     if level == logging.DEBUG:
         APP.debug = True
 
-    if not secret:
+    if not secret and not new:
         logger.error("Missing required secret.")
         sys.exit(-1)
     APP.secret = secret
