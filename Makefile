@@ -8,7 +8,7 @@ MAKEFILE_NAME := $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 # Application
 APP_ROOT    := $(abspath $(lastword $(MAKEFILE_NAME))/..)
 APP_NAME    := blockchain
-APP_VERSION := 1.0.0
+APP_VERSION := 1.1.0
 APP_DB_DIR  ?= /tmp/blockchain
 APP_PORT    ?= 5000
 APP_SECRET  ?= secret
@@ -268,8 +268,14 @@ bump:	## bump version using VERSION specified as user input (make VERSION=<X.Y.Z
 	@-bash -c '$(CONDA_CMD) test -f "$(CONDA_ENV_PATH)/bin/bump2version" || pip install $(PIP_XARGS) bump2version'
 	@-bash -c '$(CONDA_CMD) bump2version $(BUMP_XARGS) --new-version "${VERSION}" patch;'
 
+# must bump and apply changes to obtain new version first, then commit back the generate schema with updated tag
 .PHONY: release
-release: bump docs-openapi-only  ## generate a new release version and related documentation
+release:  ## generate a new release version and related documentation
+	@$(MAKE) VERSION="${VERSION}" -C "$(APP_ROOT)" bump
+	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-only
+	@git add "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json" && \
+		git commit --amend --no-edit && \
+		git tag -f "$(APP_VERSION)"
 
 ## --- Installation targets --- ##
 

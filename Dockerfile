@@ -3,7 +3,7 @@ LABEL description.short="User-Data Consents Management Blockchain"
 LABEL description.long="User consents management using Blockchain technology to guarantee integrity and traceability of private data."
 LABEL maintainer="Francis Charette-Migneault <francis.charette-migneault@crim.ca>"
 LABEL vendor="CRIM"
-LABEL version="1.0.0"
+LABEL version="1.1.0"
 
 ADD requirements.txt /app/
 ADD blockchain/ /app/blockchain
