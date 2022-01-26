@@ -1,14 +1,14 @@
 # extension of 'https://github.com/mewwts/addict' with JSON converter
 addict @ https://github.com/fmigneault/addict/archive/json.zip
-apispec>=4,<5
-# flasgger
-flask<2
-flask_apispec==0.11
-flask_mako
-gunicorn
-# flask_restx
-marshmallow
+
+## USING FastAPI
+fastapi[all]
+fastapi-mako
+pydantic
+uvicorn[standard]
+
+importlib-metadata
 python-dateutil
+pyyaml
 requests
 webargs
-

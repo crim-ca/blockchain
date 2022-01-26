@@ -94,7 +94,7 @@ setup(
     maintainer_email="francis.charette-migneault@crim.ca",
     contact="CRIM Info",
     contact_email="info@crim.ca",
-    url="https://www.crim.ca/stash/projects/PATR/repos/MODL-EvalBlockChain",
+    url="https://github.com/crim-ca/blockchain",
     platforms=["linux_x86_64"],
     license=LICENSE_NAME.replace(" License", ""),
     keywords="Blockchain, Security, Data Integrity, Consensus",

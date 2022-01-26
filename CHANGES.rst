@@ -7,7 +7,13 @@ Changes
 `Unreleased <https://github.com/crim-ca/blockchain/tree/master>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Refactor code using ``FastAPI`` framework for better schema validation and generation in OpenAPI documentation.
+* Add required ``--secret`` option that sets the Blockchain node secret for hashing blocks.
+* Fix warning about potential *Length Extension Attacks* related to applied hashing method
+  (relates to `HL101 warning <https://pycharm-security.readthedocs.io/en/latest/checks/HL101.html>`_,
+  `Length Extension Attacks <https://blog.skullsecurity.org/2012/everything-you-need-to-know-about-hash-length-extension-attacks>`_).
+* Fix startup of application as direct Python due to arguments not retrieved from ``sys.argv``.
+* Fix docker image build.
 
 `0.11.2 <https://github.com/crim-ca/blockchain/tree/0.11.2>`_ (2021-08-16)
 ---------------------------------------------------------------------------------------------------------------

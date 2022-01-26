@@ -1,24 +1,26 @@
+import hashlib
 import logging
 import os
 import sys
 import uuid
 from urllib.parse import urljoin
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
-from flask import request, url_for
-from flask import current_app as APP  # noqa
+from fastapi import APIRouter, Request
+
+from blockchain.api import schemas
 
 if TYPE_CHECKING:
-    from typing import List, Optional, Union
-
-    from flask import Blueprint
-
-    from blockchain import Link
-    from blockchain.api import BlockchainWebApp
+    from blockchain.app import BlockchainWebApp
 
 
-def get_logger(name, level=None, force_stdout=None, message_format=None, datetime_format=None, file=None):
-    # type: (str, Optional[int], bool, Optional[str], Optional[str], Optional[str]) -> logging.Logger
+def get_logger(name: str,
+               level: Optional[str] = None,
+               force_stdout: bool = False,
+               message_format: Optional[str] = None,
+               datetime_format: Optional[str] = None,
+               file: Optional[str] = None,
+               ) -> logging.Logger:
     """
     Immediately sets the logger level to avoid duplicate log outputs from the `root logger` and `this logger` when
     `level` is ``logging.NOTSET``.
@@ -33,8 +35,13 @@ def get_logger(name, level=None, force_stdout=None, message_format=None, datetim
     return logger
 
 
-def set_logger_config(logger, level=None, force_stdout=False, message_format=None, datetime_format=None, file=None):
-    # type: (logging.Logger, Optional[int], bool, Optional[str], Optional[str], Optional[str]) -> logging.Logger
+def set_logger_config(logger: logging.Logger,
+                      level: Optional[int] = None,
+                      force_stdout: bool = False,
+                      message_format: Optional[str] = None,
+                      datetime_format: Optional[str] = None,
+                      file: Optional[str] = None,
+                      ) -> logging.Logger:
     """
     Applies the provided logging configuration settings to the logger.
     """
@@ -65,7 +72,7 @@ def set_logger_config(logger, level=None, force_stdout=False, message_format=Non
     return logger
 
 
-def is_uuid(obj):
+def is_uuid(obj: Any) -> bool:
     try:
         uuid.UUID(str(obj))
     except (TypeError, ValueError):
@@ -73,17 +80,31 @@ def is_uuid(obj):
     return True
 
 
-def get_links(scope, self=True):
-    # type: (Union[Blueprint, BlockchainWebApp]) -> List[Link]
+def url_strip_slash(path: str) -> str:
+    if path.endswith("/") and path != "/":
+        return path[:-1]
+    return path
+
+
+def get_links(request: Request, scope: APIRouter, self=True) -> List["schemas.Link"]:
     links = []
-    scope = scope.name + "."
-    for rule in APP.url_map.iter_rules():
-        endpoint = rule.endpoint
-        # if the endpoint rule contains a path parameter, skip it since it cannot be generated
-        if endpoint.startswith(scope) and "<" not in str(rule) and ">" not in str(rule):
-            rel = endpoint.split(".")[-1] if endpoint != request.endpoint else "self"
+    path = url_strip_slash(request.url.path)
+    for rule in request.app.routes:
+        endpoint = url_strip_slash(rule.path)
+        # if the endpoint rule contains a path parameter(s), skip it since it cannot be generated
+        if endpoint.startswith(scope.prefix) and "{" not in rule.path:
+            rel = endpoint.split("/")[-1] if endpoint != path else "self"
             if rel == "self" and not self:
                 continue
             title = rel.replace("_", " ").capitalize()
-            links.append({"href": urljoin(request.url, url_for(endpoint)), "rel": rel, "title": title})
-    return links
+            href = request.url_for(rule.name)
+            links.append({"href": href, "rel": rel, "title": title})
+    return links  # type: ignore
+
+
+def compute_hash(value: Any) -> str:
+    from blockchain.app import APP  # import here to avoid circular import and passing secret everywhere
+
+    e_value = str(value).encode("utf-8")
+    e_secret = str(APP.secret).encode("utf-8")
+    return hmac.new(e_value, msg=e_secret, digestmod=hashlib.sha256).hexdigest()

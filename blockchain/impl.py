@@ -3,20 +3,18 @@ import hashlib
 import json
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum, auto
-from typing import TYPE_CHECKING
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import requests
 from dateutil import parser as dt_parser
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
 
-from blockchain.utils import get_logger
-
-if TYPE_CHECKING:
-    from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
-
-    from blockchain import JSON
+from blockchain import AnyUUID, JSON
+from blockchain.api import schemas
+from blockchain.utils import compute_hash, get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -87,8 +85,7 @@ class Base(AttributeDict, abc.ABC):
                 base[key] = str(value) if force else value
         return base
 
-    def params(self):
-        # type: () -> Dict[str, Any]
+    def params(self) -> Dict[str, Any]:
         """
         Obtain the internal data representation for storage.
         """
@@ -99,17 +96,22 @@ class WithDatetime(Base):
     def __init__(self, *args, **kwargs):
         # generate or set created datetime
         created = kwargs.pop("created", kwargs.pop("timestamp", None))
-        self["created"] = created or self.created
+        dict.__setattr__(self, "created", created or self.created)
         super(WithDatetime, self).__init__(*args, **kwargs)
 
     @property
-    def created(self):
-        # type: () -> str
+    def created(self) -> datetime:
         dt = self.get("created")
         if dt is None:
             dt = datetime.utcnow().isoformat()
             self["created"] = dt
         return dt
+
+    @created.setter
+    def created(self, created: Optional[Union[str, datetime]]) -> None:
+        if created is not None and isinstance(created, str):
+            created = datetime.fromisoformat(created)
+        dict.__setitem__(self, "created", created)
 
 
 class Transaction(Base):
@@ -142,12 +144,18 @@ class ConsentType(EnumNameHyphenCase):
 
 
 class Consent(WithDatetime):
-    def __init__(self, action, consent, *args, expire=None, consent_type=ConsentType.CREATED, **kwargs):
-        # type: (ConsentAction, bool, Any, Optional[datetime], ConsentType, Any) -> None
-        self["action"] = ConsentAction(action)
+    def __init__(self,
+                 action: Union[str, ConsentAction],
+                 consent: bool,
+                 *args: Any,
+                 expire: Optional[Union[str, datetime]] = None,
+                 consent_type: Union[str, ConsentType] = ConsentType.CREATED,
+                 **kwargs: Any,
+                 ) -> None:
+        dict.__setattr__(self, "action", action)
         self["consent"] = consent
-        self["expire"] = expire
-        self["type"] = consent_type
+        dict.__setattr__(self, "expire", expire)
+        dict.__setattr__(self, "type", kwargs.pop("type", None) or consent_type)  # bw-compat & reload from JSON
         super(Consent, self).__init__(*args, **kwargs)
 
     def __repr__(self):
@@ -155,27 +163,45 @@ class Consent(WithDatetime):
         return f"{self.action!s} [consent:{int(self.consent)}] from [{self.created}] {expire}"
 
     @property
-    def action(self):
-        # type: () -> str
+    def action(self) -> ConsentAction:
         return self["action"]
 
+    @action.setter
+    def action(self, action: Union[str, ConsentAction]) -> None:
+        self["action"] = ConsentAction(action)
+
     @property
-    def expire(self):
-        dt = self["expire"]
-        return datetime.fromisoformat(dt) if dt else None
+    def expire(self) -> Optional[datetime]:
+        return dict.__getitem__(self, "expire")
 
     @expire.setter
-    def expire(self, expire):
+    def expire(self, expire: Optional[Union[str, datetime]]) -> None:
+        if expire is None:
+            self["expire"] = None
+            return
         if not isinstance(expire, (str, datetime)):
             raise TypeError(f"Invalid expire type: {type(expire)!s}")
         if isinstance(expire, str):
             expire = dt_parser.parse(expire)
-        self["expire"] = expire.isoformat()
+        self["expire"] = expire
+
+    @property
+    def type(self) -> ConsentType:
+        return self["type"]
+
+    @type.setter
+    def type(self, consent_type: Union[str, ConsentType]) -> None:
+        self["type"] = ConsentType(consent_type)
+
+    consent_type = type
 
 
 class ConsentChange(WithDatetime):
-    def __init__(self, *args, consents=None, **kwargs):
-        # type: (Any, Optional[Iterable[Union[Consent, JSON]]], Any) -> None
+    def __init__(self,
+                 *args: Any,
+                 consents: Optional[Iterable[Union[Consent, JSON]]] = None,
+                 **kwargs: Any,
+                 ) -> None:
         """
         Create a new consent change definition.
 
@@ -190,16 +216,14 @@ class ConsentChange(WithDatetime):
         super(ConsentChange, self).__init__(*args, **kwargs)
 
     @property
-    def consents(self):
-        # type: () -> List[Consent]
+    def consents(self) -> List[Consent]:
         """
         Obtain this block's consents (optionally changed) sorted by creation date.
         """
         return list(sorted(self["consents"], key=lambda c: c.created))
 
     @classmethod
-    def latest(cls, chain):
-        # type: (Blockchain) -> List[Consent]
+    def latest(cls, chain: "Blockchain") -> List[Consent]:
         """
         Compute the latest consents resolution cumulated over the whole blockchain history.
 
@@ -219,8 +243,7 @@ class ConsentChange(WithDatetime):
         return resolved
 
     @classmethod
-    def history(cls, chain):
-        # type: (Blockchain) -> List[str]
+    def history(cls, chain: "Blockchain") -> List[str]:
         """
         Compute the change history of consents across a blockchain.
         """
@@ -289,6 +312,18 @@ class Node(Base):
         return super(Node, self).__getitem__(item)
 
     @property
+    def _id(self):
+        return dict.__getitem__(self, "_id")
+
+    @_id.setter
+    def _id(self, _id: Optional[AnyUUID]):
+        if isinstance(_id, str):
+            _id = UUID(_id)
+        if _id is not None and not isinstance(_id, UUID):
+            raise TypeError(f"Invalid UUID: {_id!s}")
+        dict.__setattr__(self, "_id", _id)
+
+    @property
     def id(self):
         if not self["id"]:
             self.sync_id()
@@ -345,29 +380,41 @@ class Block(ConsentChange):
         })
         super(Block, self).__init__(*args, **kwargs)
 
+    @property
     def hash(self):
+        # type: () -> str
         """
         Generate the hash representation of the contents of this block.
         """
         # ensure that the Dictionary is Ordered, or hashes will become inconsistent
         # hash must combine JSON representation such that other nodes can compute it as well
         block_str = json.dumps(self.json(), sort_keys=True).encode()
-        block_hash = hashlib.sha256(block_str).hexdigest()
+        block_hash = compute_hash(block_str)
         return block_hash
 
 
 class Blockchain(Base):
-    def __init__(self, chain=None, genesis_block=True, *_, **__):
-        # type: (Optional[Iterable[Block]], bool, Any, Any) -> None
+    def __init__(self,
+                 chain: Optional[Iterable[Block]] = None,
+                 genesis_block: bool = True,
+                 difficulty: int = 4,
+                 *_: Any,
+                 **__: Any,
+                 ) -> None:
         """
         Initialize the blockchain.
 
-        If blocks are provided, they are loaded as is.
-        Otherwise, generate the genesis block.
-
-        Genesis block generation can be skipped if running initial resolution against other nodes.
+        :param chain:
+            Predefined list of blocks to load.
+            If blocks are provided, they are loaded as is.
+            Otherwise, generate the genesis block.
+        :param genesis_block:
+            Genesis block generation can be skipped if running initial resolution against other nodes.
+        :param difficulty:
+            Hashing validation difficulty as the amount of successive zeros needed guess the next block as valid.
         """
         super(Blockchain, self).__init__(*_, **__)
+        self.difficulty = difficulty
         self.pending_transactions = []
         self.pending_consents = []
         LOGGER.warning("CHAIN: %s", chain)
@@ -403,17 +450,26 @@ class Blockchain(Base):
     def updated(self):
         return self["updated"]
 
-    def json(self, *_, detail=False, **__):
-        # type: (Any, Any) -> JSON
+    def json(self, *_: Any, detail: bool = False, **__: Any) -> JSON:
         return {
             "id": str(self.id),
             "updated": self.updated.isoformat(),
             "blocks": [block.json() if detail else str(block.id) for block in self.blocks]
         }
 
+    def data(self,
+             *_: Any,
+             detail: bool = False,
+             **__: Any,
+             ) -> Dict[str, Union[uuid.UUID, datetime, Union[Block, uuid.UUID]]]:
+        return {
+            "id": self.id,
+            "updated": self.updated,
+            "blocks": self.blocks if detail else [block.id for block in self.blocks]
+        }
+
     @property
-    def blocks(self):
-        # type: () -> List[Block]
+    def blocks(self) -> List[Block]:
         return self["blocks"]
 
     @blocks.setter
@@ -423,7 +479,7 @@ class Blockchain(Base):
 
     chain = blocks  # alias
 
-    def valid_chain(self, chain):
+    def valid_chain(self, chain: "Blockchain") -> bool:
         """
         Determine if a given blockchain is valid.
 
@@ -454,8 +510,7 @@ class Blockchain(Base):
 
         return True
 
-    def resolve_conflicts(self, nodes):
-        # type: (Iterable[Node]) -> Tuple[bool, List[Node]]
+    def resolve_conflicts(self, nodes: Iterable[Node]) -> Tuple[bool, List[Node]]:
         """
         This is our consensus algorithm, it resolves conflicts
         by replacing our chain with the longest one in the network.
@@ -502,8 +557,7 @@ class Blockchain(Base):
 
         return False, validated
 
-    def verify_outdated(self, nodes):
-        # type: (Iterable[Node]) -> Optional[bool]
+    def verify_outdated(self, nodes: Iterable[Node]) -> Optional[bool]:
         """
         Verifies if a given blockchain is considered outdated (potentially unresolved) against other nodes.
 
@@ -533,28 +587,26 @@ class Blockchain(Base):
                     index = length - offset - 1
                     block = self.blocks[index]
                     other = Block(body["blocks"][index])
-                    if block.hash() == other.hash():
+                    if block.hash == other.hash:
                         outdated = False  # for now valid, but continue until last node
                 # stop on any more recent node that can be validated
                 else:
                     index = length - 1
                     block = self.blocks[index]
                     other = Block(body["blocks"][index])
-                    if block.hash() == other.hash():
+                    if block.hash == other.hash:
                         return True
                     # otherwise, unknown conflict - cannot ensure if outdated or not
         return outdated
 
-    def new_block(self, proof, previous_hash=None):
-        # type: (int, Optional[str]) -> Block
+    def new_block(self, proof: int, previous_hash: Optional[str] = None) -> Block:
         """
         Create a new Block in the Blockchain
 
         :param proof: The proof given by the Proof of Work algorithm
-        :param previous_hash: Hash of previous Block
+        :param previous_hash: Hash of previous Block, or compute it from last block in chain.
         :returns: New Block
         """
-
         data = {
             "index": len(self.blocks),
             "proof": proof,
@@ -571,8 +623,7 @@ class Blockchain(Base):
         self.blocks.append(block)
         return block
 
-    def new_transaction(self, sender, recipient, amount):
-        # type: (str, str, int) -> int
+    def new_transaction(self, sender: str, recipient: str, amount: Union[int, float, Decimal]) -> int:
         """
         Creates a new transaction to go into the next mined Block
 
@@ -589,8 +640,7 @@ class Blockchain(Base):
 
         return self.last_block["index"] + 1
 
-    def new_consent(self, action, consent, expire):
-        # type: (ConsentAction, bool, datetime) -> int
+    def new_consent(self, action: ConsentAction, consent: bool, expire: datetime) -> int:
         """
         Creates a new consents to go into the next mined block.
 
@@ -608,20 +658,17 @@ class Blockchain(Base):
         return self.last_block["index"] + 1
 
     @property
-    def last_block(self):
-        # type: () -> Block
+    def last_block(self) -> Block:
         return self.blocks[-1]
 
     @staticmethod
-    def hash(block):
-        # type: (Block) -> str
+    def hash(block: Block) -> str:
         """
         Creates a SHA-256 hash of a :class:`Block`.
         """
-        return block.hash()
+        return block.hash
 
-    def proof_of_work(self, last_block):
-        # type: (Block) -> int
+    def proof_of_work(self, last_block: Block) -> int:
         """
         Simple Proof of Work Algorithm:
 
@@ -641,9 +688,7 @@ class Blockchain(Base):
 
         return proof
 
-    @staticmethod
-    def valid_proof(last_proof, proof, last_hash):
-        # type: (int, int, str) -> bool
+    def valid_proof(self, last_proof: int, proof: int, last_hash: str) -> bool:
         """
         Validates the Proof
 
@@ -653,9 +698,10 @@ class Blockchain(Base):
         :returns: True if correct, False if not.
         """
 
-        guess = f"{last_proof}{proof}{last_hash}".encode()
-        guess_hash = hashlib.sha256(guess).hexdigest()
-        return guess_hash[:4] == "0000"
+        guess = f"{last_proof}{proof}{last_hash}"
+        guess_hash = compute_hash(guess)
+        guess_valid = "0" * self.difficulty
+        return guess_hash[:self.difficulty] == guess_valid
 
 
 class MultiChain(dict):

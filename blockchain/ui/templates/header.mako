@@ -1,5 +1,5 @@
 <head>
-    <link href="${url_for('static', filename='/style.css')}" rel="stylesheet" type="text/css" media="all"/>
+    <link href="/static/style.css" rel="stylesheet" type="text/css" media="all"/>
     <title>Blockchain Node</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.0/styles/default.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.4.0/highlight.min.js"></script>
