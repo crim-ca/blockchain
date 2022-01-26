@@ -38,8 +38,6 @@ APP = BlockchainWebApp(
     contact={
         "name": __meta__["Maintainer"],
         "email": __meta__["Maintainer-email"],
-        "responsibleOrganization": __meta__["Author"],
-        "responsibleDeveloper": __meta__["Maintainer"],
         "url": __meta__["Home-page"],
     },
     license_info={
