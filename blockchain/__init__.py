@@ -4,10 +4,7 @@
 import os
 from typing import Dict, List, Optional, Union
 from pydantic import UUID4
-try:
-    from importlib_metadata import metadata
-except ImportError:
-    from importlib import metadata
+from importlib_metadata import metadata
 
 # all metadata defined in setup.py accessible from package for reuse
 package = os.path.basename(os.path.dirname(__file__))

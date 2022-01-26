@@ -7,6 +7,7 @@ fastapi-mako
 pydantic
 uvicorn[standard]
 
+importlib-metadata
 python-dateutil
 pyyaml
 requests
