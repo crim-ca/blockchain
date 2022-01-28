@@ -9,6 +9,7 @@ uvicorn[standard]
 
 importlib-metadata
 python-dateutil
+python-magic
 pyyaml
 requests
 webargs

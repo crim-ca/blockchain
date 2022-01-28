@@ -5,7 +5,8 @@ from typing import List, Optional, Union
 from fastapi import Path, Query
 from pydantic import AnyUrl, BaseModel, Field, PositiveInt, UUID4, constr
 
-from blockchain.impl import ConsentAction, ConsentType
+from blockchain.impl import ConsentAction, ConsentType, DataType
+from blockchain.typedefs import Mapping
 
 
 VersionString = constr(regex="^[0-9]+.[0-9]+.[0-9]+$")
@@ -65,10 +66,46 @@ class RegisterNodesResponse(BaseModel):
     total: int = Field(description="Amount of nodes that can participate in consensus resolution.")
 
 
+class SubSystemBase(BaseModel):
+    data_type: DataType = Field(description="Category of the data which consents are applied onto.")
+    data_description: Optional[str] = Field(description="Details providing more context about the consented data.")
+    data_source: Optional[str] = Field(description="Provenance of the data (e.g.: URL, services, etc.).")
+    data_provider: Optional[str] = Field(description="Data provider that generates the consents requirements.")
+    metadata: Optional[Union[Mapping, str]] = Field(
+        description="Additional metadata to be associated with the consents to better describe them."
+    )
+
+
+class SubSystemDataSubmitted(BaseModel):
+    media_type: Optional[str] = Field(
+        description="Explicit IANA data content format (defaults to plain/text or octets based on data if omitted)."
+    )
+    data: Union[bytes, str] = Field(
+        description="Literal data that contents apply to for validation (not stored in blockchain)."
+    )
+
+
+class SubSystemRequestBody(SubSystemBase, SubSystemDataSubmitted):
+    class Config:
+        extra = "forbid"  # make sure to forbid 'data_hash' for example
+
+
+class SubSystemDataResolved(BaseModel):
+    media_type: str = Field(description="Specified or resolved IANA data content format.")
+    data_hash: str = Field(description="Encrypted data representation of validation of associated consents.")
+
+
+class SubSystemResponseBody(SubSystemBase, SubSystemDataResolved):
+    pass
+
+
 class ConsentRequestBody(BaseModel):
     action: ConsentAction
     consent: bool
     expire: Optional[datetime] = None
+    subsystems: Optional[List[SubSystemRequestBody]] = Field(
+        description="Subsystem definitions and metadata related to data with applied consents."
+    )
 
 
 class ConsentSchema(BaseModel):
@@ -82,6 +119,9 @@ class ConsentSchema(BaseModel):
         "Revert back automatically to revoked consent when datetime is reached. "
         "Consents never expire if unspecified, unless explicitly updated with revoked consent."
     ))
+    subsystems: List[SubSystemResponseBody] = Field(
+        description="Subsystem definitions and metadata related to data with applied consents."
+    )
 
 
 class TransactionSchema(BaseModel):

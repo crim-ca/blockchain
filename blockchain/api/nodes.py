@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Request
 
-from blockchain import AnyRef
 from blockchain.api import schemas
 from blockchain.impl import Node
+from blockchain.typedefs import AnyRef
 from blockchain.utils import get_links
 
 if TYPE_CHECKING:

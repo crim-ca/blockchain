@@ -5,12 +5,11 @@ import uuid
 from typing import TYPE_CHECKING
 
 from blockchain.impl import Block, Blockchain, MultiChain
+from blockchain.typedefs import AnyUUID
 from blockchain.utils import get_logger, is_uuid
 
 if TYPE_CHECKING:
     from typing import Optional, Tuple
-
-    from blockchain import AnyUUID
 
 LOGGER = get_logger(__name__)
 

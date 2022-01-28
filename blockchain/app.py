@@ -13,10 +13,11 @@ from pydantic.errors import PydanticTypeError
 from pydantic.validators import bool_validator, int_validator, float_validator
 from uvicorn import Config, Server
 
-from blockchain import AnyUUID, __meta__, __title__
+from blockchain import __meta__, __title__
 from blockchain.api import BLOCK, CHAIN, MAIN, MAKO, NODES, VIEWS, schemas
 from blockchain.database import DB_TYPES, Database
 from blockchain.impl import Blockchain, MultiChain, Node
+from blockchain.typedefs import AnyUUID
 from blockchain.utils import get_logger, set_logger_config
 
 LOGGER = get_logger("blockchain")
@@ -159,7 +160,7 @@ def main(**args):
 def run(host="0.0.0.0",         # type: str
         port=5001,              # type: int
         db=None,                # type: Union[str, Database]
-        node=None,              # type: AnyUUID
+        node=None,              # type: Optional[AnyUUID]
         nodes=None,             # type: Union[str, List[str], List[List[str]]]
         new=False,              # type: bool
         secret=None,            # type: str

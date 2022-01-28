@@ -123,3 +123,6 @@ their should process consensus resolution against.
 
 The *Consents* are generated with a set of demonstration *Actions*, which can be extended as needed by modifying the
 `ConsentsAction` enumeration.
+
+Please refer to [Updating Consents](docs/consents.md#updating-contents) section for more details regarding
+applicable consents metadata to be pushed to the blockchain. 
