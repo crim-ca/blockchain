@@ -6,9 +6,9 @@ import requests
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, UUID4
 
-from blockchain import AnyRef, AnyUUID
 from blockchain.api import schemas
 from blockchain.impl import AttributeDict, Block, Blockchain, ConsentChange, Node
+from blockchain.typedefs import AnyRef, AnyUUID
 from blockchain.utils import get_logger
 
 if TYPE_CHECKING:
@@ -313,6 +313,7 @@ def update_consent(request: Request, body: schemas.ConsentRequestBody, chain_id:
         action=body.action,
         expire=body.expire,
         consent=body.consent,
+        subsystems=body.subsystems
     )
 
     # Forge the new Block by adding it to the chain

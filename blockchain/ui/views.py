@@ -10,10 +10,11 @@ from fastapi_mako import FastAPIMako  # noqa
 from pydantic import UUID4
 
 import blockchain
-from blockchain import AnyUUID, JSON, __meta__
+from blockchain import __meta__
 from blockchain.api import schemas
 from blockchain.api.chain import get_chain, get_chain_links, view_consents
 from blockchain.impl import Blockchain
+from blockchain.typedefs import AnyUUID, JSON
 from blockchain.utils import get_links
 
 

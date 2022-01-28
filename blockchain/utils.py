@@ -1,3 +1,4 @@
+import cchardet
 import hashlib
 import hmac
 import logging

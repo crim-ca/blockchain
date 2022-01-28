@@ -5,14 +5,15 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
+import magic
 import requests
 from dateutil import parser as dt_parser
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
 
-from blockchain import AnyUUID, JSON
+from blockchain.typedefs import AnyUUID, JSON, Mapping
 from blockchain.utils import compute_hash, get_logger
 
 LOGGER = get_logger(__name__)
@@ -73,7 +74,7 @@ class Base(AttributeDict, abc.ABC):
 
     # FIXME: remove when integrated (https://github.com/mewwts/addict/pull/139)
     def json(self, force=True):
-        # type: (bool) -> JSON
+        # type: (bool) -> "JSON"
         """
         JSON representation of the data.
         """
@@ -148,6 +149,12 @@ class ConsentAction(EnumNameHyphenCase):
     LAST_NAME_WRITE = auto()
     EMAIL_READ = auto()
     EMAIL_WRITE = auto()
+    READ_DATA = auto()
+    SHARE_DATA = auto()
+    WRITE_DATA = auto()
+    READ_FILE = auto()
+    SHARE_FILE = auto()
+    WRITE_FILE = auto()
 
 
 class ConsentType(EnumNameHyphenCase):
@@ -164,21 +171,50 @@ class DataType(EnumNameHyphenCase):
     DOCUMENT = auto()
     MESSAGE = auto()
     OTHER = auto()
+    UNDEFINED = auto()
+
+
+class Null(object):
+    pass
+
+
+null = Null()
 
 
 class SubSystem(Base):
     def __init__(self,
-                 data_type: Union[str, DataType],
-                 data_description: Optional[str],
-                 media_type: Optional[str],
-                 *args: Any,
+                 data: Optional[Union[str, bytes, Null]] = null,
+                 data_type: Optional[Union[str, DataType]] = None,
+                 data_hash: Optional[str] = None,
+                 data_description: Optional[str] = None,
+                 data_source: Optional[str] = None,
+                 data_provider: Optional[str] = None,
+                 media_type: Optional[str] = None,
+                 metadata: Optional[Union[Mapping, str]] = None,
                  **kwargs: Any,
                  ) -> None:
-        dict.__setattr__(self, "media_type", media_type)            # attempt auto-resolve data type
-        if self.data_type != data_type and data_type is not None:   # update if not resolved or different
-            self.data_type = data_type
+        if data is null and data_hash:  # hash not in request body
+            dict.__setattr__(self, "data_hash", data_hash)  # load from storage
+        elif data:
+            data_hash = compute_hash(data)
+            dict.__setattr__(self, "data_hash", data_hash)
+        elif data is None and data_hash is None:  # data=None mean explicit None (JSON null) in request
+            dict.__setattr__(self, "data_hash", None)   # metadata only subsystem
+        else:
+            raise ValueError("Missing either literal data to hash or precomputed data hash.")
+        if data and not media_type:
+            media_type = magic.from_buffer(data, mime=True)
+        dict.__setattr__(self, "media_type", media_type)  # attempt auto-resolve media-type from data type
+        if self.data_type != data_type:
+            if data_type is not None:
+                self.data_type = data_type   # update if not resolved or different
+            else:
+                self.data_type = DataType.UNDEFINED
+        dict.__setattr__(self, "data_source", data_source)
+        dict.__setattr__(self, "data_provider", data_provider)
         dict.__setattr__(self, "data_description", data_description)
-        super(SubSystem, self).__init__(*args, **kwargs)
+        dict.__setattr__(self, "metadata", metadata)
+        super(SubSystem, self).__init__(**kwargs)
 
     @property
     def data_type(self) -> DataType:
@@ -189,7 +225,10 @@ class SubSystem(Base):
         try:
             data_type = DataType(data_type)
         except ValueError:
-            data_type = DataType.OTHER
+            if data_type:
+                data_type = DataType.OTHER
+            else:
+                data_type = DataType.UNDEFINED
         self["data_type"] = data_type
 
     @property
@@ -214,8 +253,9 @@ class SubSystem(Base):
     @media_type.setter
     def media_type(self, media_type: Optional[str]):
         if media_type is None:
-            self["media_type"] = media_type = "plain/text"
-        elif isinstance(media_type, str):
+            self["media_type"] = None
+            return
+        if isinstance(media_type, str):
             media_type = media_type.lower()
             if "/" in media_type and media_type.split("/")[0] in KNOWN_MEDIA_TYPES:
                 self["media_type"] = media_type
@@ -223,7 +263,31 @@ class SubSystem(Base):
                 self["media_type"] = "plain/text"
             media_type = self["media_type"]
         if self.data_type is None:
-            self.data_type = media_type.split("/")[0]
+            if not media_type:
+                self.data_type = DataType.UNDEFINED
+            else:
+                self.data_type = media_type.split("/")[0]
+
+    @property
+    def metadata(self) -> Optional[Union[Mapping, str]]:
+        meta = self["metadata"]
+        if meta is None:
+            return None
+        try:
+            return json.loads(meta)
+        except (JSONDecoder, TypeError, ValueError):
+            return str(meta)
+
+    @metadata.setter
+    def metadata(self, meta: Optional[Union[Mapping, str]]):
+        if isinstance(meta, str) or meta is None:
+            self["metadata"] = meta
+            return
+        try:
+            json.dumps(meta)
+            self["metadata"] = meta
+        except (TypeError, ValueError):
+            self["metadata"] = str(meta)
 
 
 class Consent(WithDatetime):
@@ -736,13 +800,19 @@ class Blockchain(Base):
 
         return self.last_block["index"] + 1
 
-    def new_consent(self, action: ConsentAction, consent: bool, expire: datetime) -> int:
+    def new_consent(self,
+                    action: ConsentAction,
+                    consent: bool,
+                    expire: datetime,
+                    subsystems: Optional[List[SubSystem]] = None,
+                    ) -> int:
         """
         Creates a new consents to go into the next mined block.
 
         :param action: consent action to be modified
         :param consent: consent status (granted/revoked) regarding the action
         :param expire: expiration date and time of the consent (none if forever until modified)
+        :param subsystems: metadata about the data onto which consents are applied
         :returns: index of the block that will hold this new consent change
         """
         self.pending_consents.append(Consent(
@@ -750,6 +820,7 @@ class Blockchain(Base):
             expire=expire,
             consent=consent,
             consent_type=ConsentType.CHANGED,
+            subsystems=subsystems,
         ))
         return self.last_block["index"] + 1
 
