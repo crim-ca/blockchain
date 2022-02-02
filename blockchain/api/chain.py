@@ -1,3 +1,4 @@
+import json
 import uuid
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 from urllib.parse import urljoin
@@ -9,7 +10,7 @@ from pydantic import BaseModel, UUID4
 from blockchain.api import schemas
 from blockchain.impl import AttributeDict, Block, Blockchain, ConsentChange, Node
 from blockchain.typedefs import AnyRef, AnyUUID
-from blockchain.utils import get_logger
+from blockchain.utils import get_logger, parse_multipart_consents
 
 if TYPE_CHECKING:
     from blockchain.app import BlockchainWebApp
@@ -293,15 +294,70 @@ async def view_consents(request: Request, chain_id: UUID4):
 @CHAIN.post(
     "/{chain_id}/consents", tags=["Chains", "Consents"],
     summary="Create a new consent change to be registered on the blockchain.",
-    response_model=schemas.UpdateConsentResponse,
+    description=(
+        "Consents metadata can be provided using JSON or multipart body. "
+        "See [https://github.com/crim-ca/blockchain/blob/master/docs/consents.md] for more details."
+    ),
     status_code=201,
+    response_model=schemas.UpdateConsentResponse,
     responses={
         201: {
             "description": "Updated consents with new block in chain."
         }
+    },
+    openapi_extra={
+        "requestBody": {
+            "description": "Contents metadata definitions.",
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": schemas.ConsentRequestBody.schema(ref_template="#/components/schemas/{model}"),
+                },
+                # https://swagger.io/docs/specification/describing-request-body/multipart-requests/
+                "multipart/related": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "meta": {
+                                "description": "Metadata consents part.",
+                                "type": schemas.ConsentRequestBody.schema(ref_template="#/components/schemas/{model}")
+                            }
+                        },
+                        "additionalProperties": {
+                            "oneOf": [
+                                {"type": "byte"},  # base64
+                                {"type": "string"},  # plain
+                                {},  # application/octet-stream
+                            ]
+                        }
+                    },
+                    # https://spec.openapis.org/oas/v3.1.0#encoding-object
+                    "encoding": {
+                        "meta": {
+                            "contentType": "application/json",
+                            "headers": {
+                                "Content-ID": {"type": "string", "enum": ["meta"]}
+                            }
+                        },
+                        "additionalProperties":  {
+                            "contentType": "application/json",
+                            "headers": {
+                                "Content-ID": {"type": "string"}
+                            }
+                        },
+                    }
+                }
+            }
+        }
     }
 )
-def update_consent(request: Request, body: schemas.ConsentRequestBody, chain_id: UUID4):
+async def update_consent(request: Request, chain_id: UUID4):  # , body: schemas.ConsentRequestBody
+    try:
+        body = await request.json()
+    except (json.decoder.JSONDecodeError, TypeError, ValueError):
+        body = await parse_multipart_consents(request)
+    meta = schemas.ConsentRequestBody.validate(body)
+
     # run the proof of work algorithm to get the next proof
     blockchain = get_chain(request.app, chain_id)
     last_block = blockchain.last_block
@@ -310,10 +366,10 @@ def update_consent(request: Request, body: schemas.ConsentRequestBody, chain_id:
     # receive a reward for finding the proof.
     # The sender is "0" to signify that this node has mined a new coin.
     blockchain.new_consent(
-        action=body.action,
-        expire=body.expire,
-        consent=body.consent,
-        subsystems=body.subsystems
+        action=meta.action,
+        expire=meta.expire,
+        consent=meta.consent,
+        subsystems=meta.subsystems
     )
 
     # Forge the new Block by adding it to the chain

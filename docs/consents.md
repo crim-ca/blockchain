@@ -83,16 +83,15 @@ be indicated as well in this part to identify it as the metadata definition of `
 
 All ``subsystems`` entries should define their corresponding ``data_id`` field using the specified ``Content-ID`` from
 other parts. This will provide the necessary details for the application to map relevant elements together. Naturally, 
-there should be as many subsequent parts as there are ``subsystems`` entries with an associated ``data_id``.
+there should be at least as many subsequent parts as there are ``subsystems`` entries with an associated ``data_id``.
 If any part entry (except the JSON metadata) cannot be mapped between its ``data_id`` and one ``Content-ID``, the 
-request will fail to avoid corrupted or incomplete consent definitions. Additional parts will be ignored and dropped.
+request will fail to avoid corrupted or incomplete consent definitions.
 
 Some fields like ``media_type`` and ``data_description`` can be omitted from their respective ``subsystems`` if they 
 are provided through ``Content-Type`` and ``Content-Description`` headers of their part. 
 Furthermore, other ``subsystems`` entries can still be provided literally in the JSON definition as described in the
 [Metadata-Only Consents](#metadata-only-consents) section, but using ``data`` rather than ``data_id`` in this case.
-Additional parts will be applied where referenced in the ``subsystems`` list. Therefore, they should all minimally 
-provide their ``data_id``.
+Those additional definitions don't require to have any associated multipart content.
 
 ```http request
 POST /chains/{{chain_id}}/consents
@@ -126,3 +125,9 @@ iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAAC...
 
 --simple boundary--
 ```
+
+**WARNING**
+
+As per [RFC-7578 section 4.1](https://datatracker.ietf.org/doc/html/rfc7578#section-4.1), parts MUST be separated by
+``CRLF`` instead of ``LF``. In the above example, all *empty lines* (i.e.: following each ``Content-ID`` and before 
+each boundary in this case), should therefore be represented as double ``CRLF`` entries in the request body.
