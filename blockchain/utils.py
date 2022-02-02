@@ -1,3 +1,5 @@
+import json
+
 import cchardet
 import hashlib
 import hmac
@@ -6,10 +8,12 @@ import os
 import sys
 import uuid
 from urllib.parse import urljoin
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Coroutine, List, Optional, Union
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
+from requests_toolbelt import multipart
 
+from blockchain.typedefs import JSON
 
 if TYPE_CHECKING:
     from blockchain.api import schemas
@@ -110,3 +114,93 @@ def compute_hash(value: Any) -> str:
     e_value = str(value).encode("utf-8")
     e_secret = str(APP.secret).encode("utf-8")
     return hmac.new(e_value, msg=e_secret, digestmod=hashlib.sha256).hexdigest()
+
+
+async def parse_multipart_consents(request: Request) -> JSON:
+    """
+    Parse multipart body expecting boundaries defining different consents metadata.
+
+    .. seealso::
+        https://github.com/crim-ca/blockchain/blob/master/docs/consents.md#encoded-data-consents
+
+    :param request: Request with multipart body.
+    :return: Mapping of parsed body parts with corresponding ID
+    """
+    body = request.body()
+    if isinstance(body, Coroutine):
+        body = await body
+    try:
+        content_type = request.headers["Content-Type"]
+        decoded_body = multipart.decoder.MultipartDecoder(body, content_type)
+    except multipart.decoder.ImproperBodyPartContentException as exc:
+        raise HTTPException(422, f"Multipart body or sub-part failed parsing. Detail: [{exc!s}]")
+    except multipart.decoder.NonMultipartContentTypeException as exc:
+        raise HTTPException(422, f"Multipart body could not be parsed. Detail: [{exc!s}]")
+    except TypeError as exc:
+        raise HTTPException(400, f"Multipart body has invalid Content-Type. Detail: [{exc!s}]")
+    if len(decoded_body.parts) < 1:
+        raise HTTPException(400, f"Multipart body failed to retrieve any valid content part.")
+    # search for JSON meta part
+    meta = None
+    meta_index = -1
+    for i, part in enumerate(decoded_body.parts):
+        c_type = part.headers.get(b"Content-Type", b"")
+        c_id = part.headers.get(b"Content-ID")
+        if c_type.startswith(b"application/json") and c_id == b"meta":
+            try:
+                meta = json.loads(part.text)
+            except Exception:
+                raise HTTPException(422, f"Multipart body 'meta' part is not valid JSON contents.")
+            meta_index = i
+            break
+    if not meta:
+        raise HTTPException(400, "Multipart body did not provide required 'meta' part.")
+    subsystems = meta.get("subsystems", [])
+    if not isinstance(subsystems, list) and len(subsystems) and all(isinstance(sub, dict) for sub in subsystems):
+        raise HTTPException(400, "Multipart 'meta' content is missing or provided invalid 'subsystems' definition.")
+
+    # parse other parts to populate consent subsystems entries in metadata
+    known_ids = [subsystem.get("data_id") for subsystem in subsystems]
+    known_ids = [_id for _id in known_ids if _id and isinstance(_id, str)]  # ignore extra metadata subsystems
+    if not known_ids:
+        raise HTTPException(400, "Multipart 'meta' content did not provide any subsystem with valid 'data_id' field.")
+    if len(set(known_ids)) != len(known_ids):
+        raise HTTPException(409, "Multipart 'meta' content specified subsystems with duplicate 'data_id' field.")
+    found_ids = set()
+    for i, part in enumerate(decoded_body.parts):
+        if i == meta_index:
+            continue
+        c_id = part.headers.get(b"Content-ID")
+        if not c_id:
+            raise HTTPException(422, f"Multipart body part (index: {i}) did not provide required 'Content-ID' header.")
+        c_id = c_id.decode("utf-8")
+        for subsystem in subsystems:
+            data_id = subsystem.get("data_id")
+            if not data_id:
+                continue
+            if data_id == c_id:
+                if c_id in found_ids:
+                    raise HTTPException(409, (
+                        f"Multipart body (index: {i}, Content-ID: {c_id}) "
+                        f"has a duplicate Content-ID with another part."
+                    ))
+                found_ids.add(c_id)
+                # apply updates
+                desc = part.headers.get(b"Content-Description")
+                if desc and not subsystem.get("data_description"):
+                    subsystem["data_description"] = desc.decode("utf-8")
+                c_type = part.headers.get(b"Content-Type", b"").decode("utf-8")
+                if c_type and len(c_type.split("/")) == 2:
+                    subsystem["media_type"] = c_type
+                # NOTE:
+                #   no conversion of type/format/encoding needed because data itself will not be saved
+                #   this is stored only temporarily to generate the hash from it, which needs a plain string
+                subsystem["data"] = part.text
+                subsystem.pop("data_id")  # avoid later schema validation
+                break
+        else:
+            raise HTTPException(422, (
+                f"Multipart body part (index: {i}, Content-ID: {c_id}) "
+                f"could not be matched against any subsystem 'data_id' from meta part contents."
+            ))
+    return meta

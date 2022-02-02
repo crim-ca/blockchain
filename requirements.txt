@@ -12,4 +12,5 @@ python-dateutil
 python-magic
 pyyaml
 requests
+requests_toolbelt
 webargs
