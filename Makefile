@@ -224,25 +224,46 @@ _force_docs:
 DOCS := openapi
 DOCS := $(addprefix docs-, $(DOCS))
 DOCS_BUILD := $(DOCS_LOCATION) _force_docs
+DOCS_OPENAPI_TAG ?= $(APP_VERSION)
+DOCS_OPENAPI_DEST ?= schema
 
-.PHONY: docs-openapi-latest
-docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
+.PHONY: _docs_openapi_format
+_docs_openapi_format:
+	@-echo "Generating latest OpenAPI documentation [$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json]..."
 	@bash -c "$(CONDA_CMD) \
 		python -c '\
 import json; \
-print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json\")), indent=4))' \
-	" > "$(DOCS_SCHEMA_DIR)/schema.json"
+print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json\")), indent=4))' \
+	" > "$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json"
+
+.PHONY: docs-openapi-latest
+docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
+	@$(MAKE) -C "$(APP_ROOT)" \
+		DOCS_OPENAPI_TAG=$(APP_VERSION) \
+		DOCS_OPENAPI_DEST=schema \
+		_docs_openapi_format
+
+.PHONY: docs-openapi-dev
+docs-openapi-dev:  ## applies the current code OpenAPI schema as the development schema reference for Postman
+	@$(MAKE) -C "$(APP_ROOT)" \
+		DOCS_OPENAPI_TAG=dev \
+		DOCS_OPENAPI_DEST=openapi-$(APP_VERSION)-dev \
+		docs-openapi-only _docs_openapi_format
+	@-rm "$(DOCS_SCHEMA_DIR)/openapi-dev.json"
 
 # must install package to apply new version as necessary to be reflected in generated OpenAPI
 .PHONY: docs-openapi-only
-docs-openapi-only: install-pkg
+docs-openapi-only:
 	@-echo "Building OpenAPI schema documentation"
 	@$(MAKE) -C "$(APP_ROOT)" start-app
 	@mkdir -p "$(DOCS_SCHEMA_DIR)"
 	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)/json" \
-		> "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json"
+		> "$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json"
 	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-latest
 	@$(MAKE) -C "$(APP_ROOT)" stop
+
+.PHONY: docs-openapi
+docs-openapi: install-pkg docs-openapi-only
 
 .PHONY: docs-only
 docs-only: $(addsuffix -only, $(DOCS)) $(DOCS_BUILD)	## generate documentation without requirements installation or cleanup
