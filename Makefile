@@ -227,28 +227,32 @@ DOCS_BUILD := $(DOCS_LOCATION) _force_docs
 DOCS_OPENAPI_TAG ?= $(APP_VERSION)
 DOCS_OPENAPI_DEST ?= schema
 
-.PHONY: _docs_openapi_format
-_docs_openapi_format:
+# use tmp dir to avoid losing the original schema if formatted destination is the source file and error occurs
+.PHONY: docs-openapi-format
+docs-openapi-format:
 	@-echo "Generating latest OpenAPI documentation [$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json]..."
+	@$(eval DOC_TMP_DIR := $(shell mktemp -d))
 	@bash -c "$(CONDA_CMD) \
 		python -c '\
 import json; \
 print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json\")), indent=4))' \
-	" > "$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json"
+	" > "$(DOC_TMP_DIR)/$(DOCS_OPENAPI_DEST).json"
+	@mv "$(DOC_TMP_DIR)/$(DOCS_OPENAPI_DEST).json" "$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json"
+	@-rm -fr $(DOC_TMP_DIR)
 
 .PHONY: docs-openapi-latest
 docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
 	@$(MAKE) -C "$(APP_ROOT)" \
 		DOCS_OPENAPI_TAG=$(APP_VERSION) \
 		DOCS_OPENAPI_DEST=schema \
-		_docs_openapi_format
+		docs-openapi-format
 
 .PHONY: docs-openapi-dev
 docs-openapi-dev:  ## applies the current code OpenAPI schema as the development schema reference for Postman
 	@$(MAKE) -C "$(APP_ROOT)" \
 		DOCS_OPENAPI_TAG=dev \
 		DOCS_OPENAPI_DEST=openapi-$(APP_VERSION)-dev \
-		docs-openapi-only _docs_openapi_format
+		docs-openapi-only docs-openapi-format
 	@-rm "$(DOCS_SCHEMA_DIR)/openapi-dev.json"
 
 # must install package to apply new version as necessary to be reflected in generated OpenAPI
