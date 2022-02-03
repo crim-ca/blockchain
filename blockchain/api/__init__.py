@@ -46,12 +46,12 @@ async def frontpage(request: Request):
         "node": request.app.node.id,
         "version": __meta__["version"],
         "links": [
-            {"rel": "api", "href": urljoin(base, "/api")},
-            {"rel": "ui", "href": urljoin(base, "/ui")},
-            {"rel": "json", "href": urljoin(base, "/schema")},
-            {"rel": "yaml", "href": urljoin(base, "/schema?f=yaml")},
-            {"rel": "nodes", "href": urljoin(base, "/nodes")},
-            {"rel": "self", "href": base}
+            {"rel": "api", "title": "OpenAPI documentation.", "href": urljoin(base, "/api")},
+            {"rel": "json", "title": "OpenAPI schemas (JSON).", "href": urljoin(base, "/schema")},
+            {"rel": "yaml", "title": "OpenAPI schemas (YAML).", "href": urljoin(base, "/schema?f=yaml")},
+            {"rel": "ui", "title": "User interface.", "href": urljoin(base, "/ui")},
+            {"rel": "nodes", "title": "Registered network nodes.", "href": urljoin(base, "/nodes")},
+            {"rel": "self", "title": "API entrypoint.", "href": base}
         ]
     }
     return body

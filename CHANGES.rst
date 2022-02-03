@@ -9,6 +9,27 @@ Changes
 
 * Nothing yet.
 
+`2.0.0 <https://github.com/crim-ca/blockchain/tree/2.0.0>`_ (2022-02-03)
+---------------------------------------------------------------------------------------------------------------
+
+* Add ``subsystems`` definitions to blocks stored in the blockchains to detail referenced data for which the
+  consents are being applied.
+* Add more extensive documentation about content metadata when ``subsystems`` are involved.
+* Add more CSS definitions for different field types allowing better interpretation of consents metadata at a glance.
+* Add UI shortcuts to every page allowing to return back to initial network nodes and chains listing pages after
+  visiting more specific children pages of a given blockchain blocks or consents.
+* Replace ``changes`` field returned by API ``GET /chains/{id}/consents`` request from generic strings to detailed
+  JSON representation of consent history changes. Old string representation is returned in new ``summary`` field.
+* Improve application log message format and align ``uvicorn`` logging details with it.
+* Fix import error when computing block hash.
+* Fix default modification ``ContentType`` from ``CREATED`` to new ``UNDEFINED``.
+  This better explains why the creation time of a dynamically generated consent during *latest consents* listing
+  always changes upon each API or UI call.
+* Fix potential incomplete save of blockchain following corrupted data in block.
+* Fix block creation from direct dictionary instead of keyword arguments.
+* Fix resolution of class implementations to enforce parsing and validation of properties when available.
+* Fix format of ``created`` and ``expire`` fields in API and for saving data using consistent ISO formatted datetimes.
+
 `1.1.0 <https://github.com/crim-ca/blockchain/tree/1.1.0>`_ (2022-01-26)
 ---------------------------------------------------------------------------------------------------------------
 

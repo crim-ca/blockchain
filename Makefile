@@ -8,7 +8,7 @@ MAKEFILE_NAME := $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 # Application
 APP_ROOT    := $(abspath $(lastword $(MAKEFILE_NAME))/..)
 APP_NAME    := blockchain
-APP_VERSION := 1.1.0
+APP_VERSION := 2.0.0
 APP_DB_DIR  ?= /tmp/blockchain
 APP_PORT    ?= 5000
 APP_SECRET  ?= secret
@@ -224,25 +224,50 @@ _force_docs:
 DOCS := openapi
 DOCS := $(addprefix docs-, $(DOCS))
 DOCS_BUILD := $(DOCS_LOCATION) _force_docs
+DOCS_OPENAPI_TAG ?= $(APP_VERSION)
+DOCS_OPENAPI_DEST ?= schema
 
-.PHONY: docs-openapi-latest
-docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
+# use tmp dir to avoid losing the original schema if formatted destination is the source file and error occurs
+.PHONY: docs-openapi-format
+docs-openapi-format:
+	@-echo "Generating latest OpenAPI documentation [$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json]..."
+	@$(eval DOC_TMP_DIR := $(shell mktemp -d))
 	@bash -c "$(CONDA_CMD) \
 		python -c '\
 import json; \
-print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json\")), indent=4))' \
-	" > "$(DOCS_SCHEMA_DIR)/schema.json"
+print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json\")), indent=4))' \
+	" > "$(DOC_TMP_DIR)/$(DOCS_OPENAPI_DEST).json"
+	@mv "$(DOC_TMP_DIR)/$(DOCS_OPENAPI_DEST).json" "$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json"
+	@-rm -fr $(DOC_TMP_DIR)
+
+.PHONY: docs-openapi-latest
+docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
+	@$(MAKE) -C "$(APP_ROOT)" \
+		DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) \
+		DOCS_OPENAPI_DEST=schema \
+		docs-openapi-format
+
+.PHONY: docs-openapi-dev
+docs-openapi-dev:  ## applies the current code OpenAPI schema as the development schema reference for Postman
+	@$(MAKE) -C "$(APP_ROOT)" \
+		DOCS_OPENAPI_TAG=dev \
+		DOCS_OPENAPI_DEST=openapi-$(APP_VERSION)-dev \
+		docs-openapi-only docs-openapi-format
+	@-rm "$(DOCS_SCHEMA_DIR)/openapi-dev.json"
 
 # must install package to apply new version as necessary to be reflected in generated OpenAPI
 .PHONY: docs-openapi-only
-docs-openapi-only: install-pkg
+docs-openapi-only:
 	@-echo "Building OpenAPI schema documentation"
 	@$(MAKE) -C "$(APP_ROOT)" start-app
 	@mkdir -p "$(DOCS_SCHEMA_DIR)"
 	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)/json" \
-		> "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json"
-	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-latest
+		> "$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json"
+	@$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) docs-openapi-latest
 	@$(MAKE) -C "$(APP_ROOT)" stop
+
+.PHONY: docs-openapi
+docs-openapi: install-pkg docs-openapi-only
 
 .PHONY: docs-only
 docs-only: $(addsuffix -only, $(DOCS)) $(DOCS_BUILD)	## generate documentation without requirements installation or cleanup
@@ -261,8 +286,10 @@ docs-show: $(DOCS_LOCATION)	## display HTML webpage of generated documentation (
 # Bumpversion 'dry' config
 # if 'dry' is specified as target, any bumpversion call using 'BUMP_XARGS' will not apply changes
 BUMP_XARGS ?= --verbose --allow-dirty
+BUMP_DRY := 0
 ifeq ($(filter dry, $(MAKECMDGOALS)), dry)
 	BUMP_XARGS := $(BUMP_XARGS) --dry-run
+	BUMP_DRY := 1
 endif
 
 .PHONY: dry
@@ -277,15 +304,12 @@ bump:	## bump version using VERSION specified as user input (make VERSION=<X.Y.Z
 	@[ "${VERSION}" ] || ( echo ">> 'VERSION' is not set"; exit 1 )
 	@-bash -c '$(CONDA_CMD) test -f "$(CONDA_ENV_PATH)/bin/bump2version" || pip install $(PIP_XARGS) bump2version'
 	@-bash -c '$(CONDA_CMD) bump2version $(BUMP_XARGS) --new-version "${VERSION}" patch;'
-
-# must bump and apply changes to obtain new version first, then commit back the generate schema with updated tag
-.PHONY: release
-release:  ## generate a new release version and related documentation
-	@$(MAKE) VERSION="${VERSION}" -C "$(APP_ROOT)" bump
-	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-only
-	@git add "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json" && \
+	@[ ${BUMP_DRY} -ne 1 ] && ( \
+		$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG="${VERSION}" docs-openapi-only && \
+		git add "$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json" "$(DOCS_SCHEMA_DIR)/schema.json" && \
 		git commit --amend --no-edit && \
-		git tag -f "$(APP_VERSION)"
+		git tag -f "${VERSION}" \
+	) || echo "Would generate OpenAPI schema [$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json]";
 
 ## --- Installation targets --- ##
 
@@ -335,6 +359,7 @@ start: install start-app  ## start application instance with gunicorn after inst
 .PHONY: start-app
 start-app: stop		## start application instance with single worker
 	@echo "Starting $(APP_NAME)..."
+	@mkdir -p "$(APP_DB_DIR)"
 	@test -d "$(APP_DB_DIR)" || '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
 	@bash -c '$(CONDA_CMD) \
 		python "$(APP_ROOT)/blockchain/app.py" \

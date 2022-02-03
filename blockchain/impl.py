@@ -5,17 +5,32 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
+import magic
 import requests
 from dateutil import parser as dt_parser
 from addict import Dict as AttributeDict  # auto generates attribute, properties and getter/setter dynamically
 
-from blockchain import AnyUUID, JSON
+from blockchain.typedefs import AnyUUID, JSON, Mapping
 from blockchain.utils import compute_hash, get_logger
 
 LOGGER = get_logger(__name__)
+
+# https://www.iana.org/assignments/media-types/media-types.xhtml
+KNOWN_MEDIA_TYPES = frozenset([
+    "application",
+    "audio",
+    "font",
+    "example",
+    "image",
+    "message",
+    "model",
+    "multipart",
+    "text",
+    "video",
+])
 
 
 class Base(AttributeDict, abc.ABC):
@@ -29,20 +44,36 @@ class Base(AttributeDict, abc.ABC):
 
     def __init__(self, *_, **kwargs):
         items = dict(*_)
-        _id = items.pop("id", kwargs.pop("id", uuid.uuid4())) or uuid.uuid4()  # enforce generation if None/missing
         kwargs.update(items)
-        kwargs.update({"id": uuid.UUID(str(_id))})
-        super(Base, self).__init__(**kwargs)
+        super(Base, self).__init__()
+        for key, val in kwargs.items():
+            self.__setitem__(key, val)
 
     def __str__(self):
         # type: () -> str
         return f"{type(self).__name__} <{self.id}>"
 
+    # default behavior ignores getter property, so enforce it if it exists
+    # (not needed for __getattr__ already handled)
+    def __getitem__(self, item):
+        prop = getattr(self.__class__, item, None)
+        if isinstance(prop, property) and prop.fget is not None:
+            return prop.fget(self)
+        return super(Base, self).__getitem__(item)
+
+    # default behavior ignores setter property, so enforce it if it exists
+    def __setitem__(self, key, value):
+        prop = getattr(self.__class__, key, None)
+        if isinstance(prop, property) and prop.fset is not None:
+            prop.fset(self, value)
+        else:
+            super(Base, self).__setitem__(key, value)
+
+    # default behavior ignores setter property, so enforce it if it exists
     def __setattr__(self, name, value):
         prop = getattr(self.__class__, name, None)
-        # default behavior ignores setter property, so allow it
-        if isinstance(prop, property) and getattr(prop, "fset", None) is not None:
-            self[name] = value
+        if isinstance(prop, property) and prop.fset is not None:
+            prop.fset(self, value)
         else:
             super(Base, self).__setattr__(name, value)
 
@@ -57,31 +88,37 @@ class Base(AttributeDict, abc.ABC):
             return f"{cls.__module__}.{cls.__name__}\n{repr_}"
         return dict.__repr__(self)
 
+    @staticmethod
+    def _json_serialize(value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
     # FIXME: remove when integrated (https://github.com/mewwts/addict/pull/139)
-    def json(self, force=True):
-        # type: (bool) -> JSON
+    def json(self, force=True) -> JSON:
         """
         JSON representation of the data.
         """
         base = {}
-        for key, value in self.items():
+        for key in self.keys():
+            value = self.__getitem__(key)  # resolve any applicable property
             key = str(key)  # ensure conversion
             if isinstance(value, (type(self), dict)):
-                base[key] = AttributeDict(value).json()
+                base[key] = Base(value).json()
             elif isinstance(value, (list, tuple)):
                 base[key] = list(
-                    (AttributeDict(item).json() if callable(item.json) else AttributeDict(item).json)
+                    (Base(item).json(force) if callable(item.json) else Base(item).json)
                     if isinstance(item, (type(self), dict)) or hasattr(item, "json")
                     else item
                     if isinstance(item, (int, float, bool, str, type(None)))
-                    else str(item) if force else item
+                    else (self._json_serialize(item) if force else item)
                     for item in value)
             elif isinstance(value, (int, float, bool, str, type(None))):
                 base[key] = value
             elif hasattr(value, "json"):
                 base[key] = value.json() if callable(value.json) else value.json
             else:
-                base[key] = str(value) if force else value
+                base[key] = self._json_serialize(value) if force else value
         return base
 
     def params(self) -> Dict[str, Any]:
@@ -91,19 +128,30 @@ class Base(AttributeDict, abc.ABC):
         return dict(self)
 
 
-class WithDatetime(Base):
+class WithID(Base):
+    def __init__(self, *args, **kwargs):
+        items = dict(*args)
+        kwargs.update(items)
+        _id = kwargs.pop("id", kwargs.pop("id", uuid.uuid4())) or uuid.uuid4()  # enforce generation if None/missing
+        kwargs.update({"id": uuid.UUID(str(_id))})
+        super(WithID, self).__init__(**kwargs)
+
+
+class WithDatetimeCreated(Base):
     def __init__(self, *args, **kwargs):
         # generate or set created datetime
         created = kwargs.pop("created", kwargs.pop("timestamp", None))
-        dict.__setattr__(self, "created", created or self.created)
-        super(WithDatetime, self).__init__(*args, **kwargs)
+        Base.__setattr__(self, "created", created or self.created)
+        super(WithDatetimeCreated, self).__init__(*args, **kwargs)
 
     @property
     def created(self) -> datetime:
         dt = self.get("created")
         if dt is None:
-            dt = datetime.utcnow().isoformat()
+            dt = datetime.utcnow()
             self["created"] = dt
+        if isinstance(dt, str):
+            dt = dt_parser.parse(dt)
         return dt
 
     @created.setter
@@ -113,7 +161,27 @@ class WithDatetime(Base):
         dict.__setitem__(self, "created", created)
 
 
-class Transaction(Base):
+class WithDatetimeExpire(Base):
+    @property
+    def expire(self) -> Optional[datetime]:
+        expire = dict.__getitem__(self, "expire")
+        if isinstance(expire, str):
+            return dt_parser.parse(expire)
+        return expire
+
+    @expire.setter
+    def expire(self, expire: Optional[Union[str, datetime]]) -> None:
+        if expire is None:
+            dict.__setitem__(self, "expire", None)
+            return
+        if not isinstance(expire, (str, datetime)):
+            raise TypeError(f"Invalid expire type: {type(expire)!s}")
+        if isinstance(expire, str):
+            expire = dt_parser.parse(expire)
+        dict.__setitem__(self, "expire", expire)
+
+
+class Transaction(WithID):
     pass
 
 
@@ -134,68 +202,294 @@ class ConsentAction(EnumNameHyphenCase):
     LAST_NAME_WRITE = auto()
     EMAIL_READ = auto()
     EMAIL_WRITE = auto()
+    READ_DATA = auto()
+    SHARE_DATA = auto()
+    WRITE_DATA = auto()
+    READ_FILE = auto()
+    SHARE_FILE = auto()
+    WRITE_FILE = auto()
 
 
 class ConsentType(EnumNameHyphenCase):
     CREATED = auto()  # default consent created on first block or until change applied for given action
     CHANGED = auto()  # resolved consent action with existing and explicit definition of active consent
     EXPIRED = auto()  # when last consent was still granted, but is now passed specified expiration datetime
+    UNDEFINED = auto()  # when no consent was define for the corresponding action (ie: created time always changes)
 
 
-class Consent(WithDatetime):
+class DataType(EnumNameHyphenCase):
+    TEXT = auto()
+    AUDIO = auto()
+    IMAGE = auto()
+    VIDEO = auto()
+    DOCUMENT = auto()
+    MESSAGE = auto()
+    OTHER = auto()
+    UNDEFINED = auto()
+
+
+class SingletonMeta(type):
+    __instance__ = None  # type: Optional[SingletonMeta]
+
+    def __call__(cls):
+        if cls.__instance__ is None:
+            cls.__instance__ = super(SingletonMeta, cls).__call__()
+        return cls.__instance__
+
+
+class Null(metaclass=SingletonMeta):
+    """
+    Represents a ``null`` value to differentiate from ``None``.
+    """
+
+    # pylint: disable=E1101,no-member
+    def __eq__(self, other):
+        # type: (Any) -> bool
+        """
+        Makes any instance of :class:`NullType` compare as the same (ie: Singleton).
+        """
+        return (isinstance(other, NullType)                                     # noqa: W503
+                or other is null                                                # noqa: W503
+                or other is self.__instance__                                   # noqa: W503
+                or (inspect.isclass(other) and issubclass(other, NullType)))    # noqa: W503
+
+    def __getattr__(self, item):
+        # type: (Any) -> NullType
+        """
+        Makes any property getter return ``null`` to make any sub-item also look like ``null``.
+
+        Useful for example in the case of type comparators that do not validate their
+        own type before accessing a property that they expect to be there. Without this
+        the get operation on ``null`` would raise an unknown key or attribute error.
+        """
+        return null
+
+    def __repr__(self):
+        return "<null>"
+
+    @staticmethod
+    def __nonzero__():
+        return False
+
+    __bool__ = __nonzero__
+    __len__ = __nonzero__
+
+
+null = Null()
+
+
+class SubSystem(WithID):
+    def __init__(self,
+                 data: Optional[Union[str, bytes, Null]] = null,
+                 data_type: Optional[Union[str, DataType]] = None,
+                 data_hash: Optional[str] = None,
+                 data_description: Optional[str] = None,
+                 data_source: Optional[str] = None,
+                 data_provider: Optional[str] = None,
+                 media_type: Optional[str] = None,
+                 metadata: Optional[Union[Mapping, str]] = None,
+                 **kwargs: Any,
+                 ) -> None:
+        super(SubSystem, self).__init__(**kwargs)
+        # NOTE: use 'Base' for below operations to generate the undefined properties required by 'json()' method
+        if data is null and data_hash:  # hash not in request body
+            Base.__setattr__(self, "data_hash", data_hash)  # load from storage
+        elif data:
+            data_hash = compute_hash(data)
+            Base.__setattr__(self, "data_hash", data_hash)
+        elif data is None and data_hash is None:  # data=None mean explicit None (JSON null) in request
+            Base.__setattr__(self, "data_hash", None)   # metadata only subsystem
+        else:
+            raise ValueError("Missing either literal data to hash or precomputed data hash.")
+        Base.__setattr__(self, "data_type", data_type)
+        if data and not media_type:
+            media_type = magic.from_buffer(data, mime=True)
+        Base.__setattr__(self, "media_type", media_type)  # attempt auto-resolve media-type from data type
+        if self.data_type != data_type:
+            if data_type is not None:
+                self.data_type = data_type   # update if not resolved or different
+            else:
+                self.data_type = DataType.UNDEFINED
+        Base.__setattr__(self, "data_source", data_source)
+        Base.__setattr__(self, "data_provider", data_provider)
+        Base.__setattr__(self, "data_description", data_description)
+        Base.__setattr__(self, "metadata", metadata)
+
+    def json(self, force=True) -> JSON:
+        data = super(SubSystem, self).json(force=force)
+        data.pop("data", None)  # make sure literal data never makes its way here (to ensure privacy)
+        return data
+
+    @property
+    def data_type(self) -> DataType:
+        return dict.__getitem__(self, "data_type")
+
+    @data_type.setter
+    def data_type(self, data_type: Union[str, DataType]) -> None:
+        try:
+            data_type = DataType(data_type)
+        except ValueError:
+            if data_type:
+                data_type = DataType.OTHER
+            else:
+                data_type = DataType.UNDEFINED
+        dict.__setitem__(self, "data_type", data_type)
+
+    @property
+    def data_description(self) -> Optional[str]:
+        desc = dict.get(self, "data_description")
+        if not isinstance(desc, str):
+            return None
+        return desc
+
+    @data_description.setter
+    def data_description(self, data_description: Optional[str]):
+        if isinstance(data_description, str) or data_description is None:
+            dict.__setitem__(self, "data_description", data_description)
+
+    @property
+    def media_type(self) -> Optional[str]:
+        desc = dict.get(self, "media_type")
+        if not isinstance(desc, str):
+            return None
+        return desc
+
+    @media_type.setter
+    def media_type(self, media_type: Optional[str]):
+        if media_type is None:
+            dict.__setitem__(self, "media_type", None)
+            return
+        if isinstance(media_type, str):
+            media_type = media_type.lower()
+            if "/" in media_type and media_type.split("/")[0] in KNOWN_MEDIA_TYPES:
+                dict.__setitem__(self, "media_type", media_type)
+            else:
+                dict.__setitem__(self, "media_type", "plain/text")
+            media_type = dict.__getitem__(self, "media_type")
+        if not isinstance(self.data_type, DataType):
+            if not media_type:
+                self.data_type = DataType.UNDEFINED
+            else:
+                self.data_type = media_type.split("/")[0]
+
+    @property
+    def metadata(self) -> Optional[Union[Mapping, str]]:
+        meta = dict.get(self, "metadata")
+        if meta is None:
+            return None
+        try:
+            return json.loads(meta)
+        except (JSONDecoder, TypeError, ValueError):
+            return str(meta)
+
+    @metadata.setter
+    def metadata(self, meta: Optional[Union[Mapping, str]]):
+        if isinstance(meta, str) or meta is None:
+            dict.__setitem__(self, "metadata", meta)
+            return
+        try:
+            json.dumps(meta)
+            dict.__setitem__(self, "metadata", meta)
+        except (TypeError, ValueError):
+            dict.__setitem__(self, "metadata", str(meta))
+
+
+class ChangeHistoryStatus(EnumNameHyphenCase):
+    INITIAL = auto()
+    CREATED = auto()
+    UPDATED = auto()
+
+
+class ChangeHistoryItem(WithDatetimeCreated, WithDatetimeExpire):
+    def __init__(self,
+                 status: ChangeHistoryStatus,
+                 detail: str,   # description of the change (consent repr itself or more verbose info if no consent)
+                 action: Optional[ConsentAction] = None,  # allowed none for initial (no consents)
+                 created: Optional[Union[str, datetime]] = None,
+                 expired: Optional[Union[str, datetime]] = None,
+                 consent: Optional[Union[bool, int]] = None,  # int allowed since '1' used by 'summary' representation
+                 ) -> None:
+        super().__init__(created=created, expire=expired)
+        Base.__setitem__(self, "status", status)
+        Base.__setitem__(self, "detail", detail)
+        Base.__setitem__(self, "action", action)
+        Base.__setitem__(self, "consent", bool(consent))
+
+    def json(self, force=True) -> JSON:
+        data = super().json(force)
+        data["expired"] = data.pop("expire")
+        return data
+
+
+class Consent(WithDatetimeCreated, WithDatetimeExpire):
     def __init__(self,
                  action: Union[str, ConsentAction],
                  consent: bool,
                  *args: Any,
                  expire: Optional[Union[str, datetime]] = None,
-                 consent_type: Union[str, ConsentType] = ConsentType.CREATED,
+                 consent_type: Union[str, ConsentType] = ConsentType.UNDEFINED,
+                 subsystems: Optional[List[SubSystem]] = None,
                  **kwargs: Any,
                  ) -> None:
         dict.__setattr__(self, "action", action)
-        self["consent"] = consent
+        self["consent"] = bool(consent)
         dict.__setattr__(self, "expire", expire)
         dict.__setattr__(self, "type", kwargs.pop("type", None) or consent_type)  # bw-compat & reload from JSON
+        dict.__setattr__(self, "subsystems", subsystems or [])
         super(Consent, self).__init__(*args, **kwargs)
 
     def __repr__(self):
+        """
+        Obtain the consent string representation.
+        """
         expire = "forever" if self.expire is None else f"until [{self.expire}]"
         return f"{self.action!s} [consent:{int(self.consent)}] from [{self.created}] {expire}"
 
+    def change(self, status: ChangeHistoryStatus) -> ChangeHistoryItem:
+        """
+        Generate a JSON-like representation corresponding to the string representation with change status.
+        """
+        return ChangeHistoryItem(
+            status=status,
+            action=self.action,
+            consent=self.consent,
+            created=self.created,
+            expired=self.expire,
+            detail=f"{self!r}",
+        )
+
     @property
     def action(self) -> ConsentAction:
-        return self["action"]
+        return dict.__getitem__(self, "action")
 
     @action.setter
     def action(self, action: Union[str, ConsentAction]) -> None:
-        self["action"] = ConsentAction(action)
-
-    @property
-    def expire(self) -> Optional[datetime]:
-        return dict.__getitem__(self, "expire")
-
-    @expire.setter
-    def expire(self, expire: Optional[Union[str, datetime]]) -> None:
-        if expire is None:
-            self["expire"] = None
-            return
-        if not isinstance(expire, (str, datetime)):
-            raise TypeError(f"Invalid expire type: {type(expire)!s}")
-        if isinstance(expire, str):
-            expire = dt_parser.parse(expire)
-        self["expire"] = expire
+        dict.__setitem__(self, "action", ConsentAction(action))
 
     @property
     def type(self) -> ConsentType:
-        return self["type"]
+        return dict.__getitem__(self, "type")
 
     @type.setter
     def type(self, consent_type: Union[str, ConsentType]) -> None:
-        self["type"] = ConsentType(consent_type)
+        dict.__setitem__(self, "type", ConsentType(consent_type))
 
     consent_type = type
 
+    @property
+    def subsystems(self) -> List[SubSystem]:
+        return dict.__getitem__(self, "subsystems")
 
-class ConsentChange(WithDatetime):
+    @subsystems.setter
+    def subsystems(self, subsystems: List[Union[SubSystem, JSON]]):
+        subsystems = [SubSystem(**dict(sub)) if not isinstance(sub, SubSystem) else sub for sub in subsystems]
+        dict.__setitem__(self, "subsystems", subsystems)
+
+
+class ConsentChange(WithDatetimeCreated):
+    """
+    Holds modified consents and generates complete consents history from them.
+    """
     def __init__(self,
                  *args: Any,
                  consents: Optional[Iterable[Union[Consent, JSON]]] = None,
@@ -207,10 +501,6 @@ class ConsentChange(WithDatetime):
         Only the modified consents should be provided to reduce space in storage.
         Duplicate consents will be ignored when generating change history.
         """
-        if not consents:
-            consents = []
-        else:
-            consents = [Consent(**consent) if not isinstance(consent, Consent) else consent for consent in consents]
         self["consents"] = consents
         super(ConsentChange, self).__init__(*args, **kwargs)
 
@@ -219,7 +509,16 @@ class ConsentChange(WithDatetime):
         """
         Obtain this block's consents (optionally changed) sorted by creation date.
         """
-        return list(sorted(self["consents"], key=lambda c: c.created))
+        consents = dict.__getitem__(self, "consents")
+        return list(sorted(consents, key=lambda c: c.created))
+
+    @consents.setter
+    def consents(self, consents: Optional[Iterable[Union[Consent, JSON]]]) -> None:
+        if not consents:
+            consents = []
+        else:
+            consents = [Consent(**consent) if not isinstance(consent, Consent) else consent for consent in consents]
+        dict.__setitem__(self, "consents", consents)
 
     @classmethod
     def latest(cls, chain: "Blockchain") -> List[Consent]:
@@ -242,19 +541,20 @@ class ConsentChange(WithDatetime):
         return resolved
 
     @classmethod
-    def history(cls, chain: "Blockchain") -> List[str]:
+    def history(cls, chain: "Blockchain") -> Tuple[List[str], List[ChangeHistoryItem]]:
         """
         Compute the change history of consents across a blockchain.
         """
 
         # speed up skipping pre-computed without changes
-        changes = chain.states.consent_change_history  # type: List[str]
+        summary = chain.states.consent_change_summary  # type: List[str]
+        changes = chain.states.consent_change_history  # type: List[ChangeHistoryItem]
         last_id = chain.states.consent_change_last_id  # type: Optional[uuid.UUID]
         updated = chain.states.consent_change_updated  # type: Dict[ConsentAction, Consent]
         updated = dict(updated)  # copy to allow setting frozen dict when resolving actions
         if changes and last_id and last_id == chain.last_block.id:
             LOGGER.debug("Using precomputed consent change history for blockchain [%s]", chain.id)
-            return changes
+            return summary, changes
 
         LOGGER.debug("Computing consent change history for blockchain [%s]", chain.id)
         prev_block = None  # type: Optional[Block]
@@ -272,11 +572,16 @@ class ConsentChange(WithDatetime):
             # first block always creates initial consents
             if prev_block is None:
                 for consent in block.consents:
-                    changes.append(f"[created] => {consent!r}")
+                    status = ChangeHistoryStatus.CREATED
+                    summary.append(f"[{status}] => {consent!r}")
+                    changes.append(consent.change(status))
                     consent.type = ConsentType.CREATED
                     updated[consent.action] = consent
                 if not changes:
-                    changes.append("[initial] => (no consents)")
+                    status = ChangeHistoryStatus.INITIAL
+                    detail = "no consents"
+                    summary.append(f"[{status}] => ({detail})")
+                    changes.append(ChangeHistoryItem(status=status, detail=detail))
             # check following block for change of consents
             else:
                 for consent in block.consents:
@@ -284,22 +589,28 @@ class ConsentChange(WithDatetime):
                     consent.type = ConsentType.CHANGED
                     if prev_consent is None or prev_consent != consent:
                         updated[consent.action] = consent
-                        changes.append(f"[updated] => {consent!r}")
+                        status = ChangeHistoryStatus.UPDATED
+                        summary.append(f"[{status}] => {consent!r}")
+                        changes.append(consent.change(status=status))
                     else:
-                        changes.append(f"[updated] =>> block without consents change")
+                        status = ChangeHistoryStatus.UPDATED
+                        detail = "block without consents change"
+                        summary.append(f"[{status}] => {detail}")
+                        changes.append(ChangeHistoryItem(status=status, detail=detail))
             prev_block = block
 
         chain.states.unfreeze()
+        chain.states.consent_change_summary = summary
         chain.states.consent_change_history = changes
         chain.states.consent_change_updated = updated
         chain.states.consent_change_last_id = prev_block.id if prev_block else None
         chain.states.freeze()
-        return changes
+        return summary, changes
 
 
-class Node(Base):
+class Node(WithID):
     def __init__(self, url, id=None):
-        self._id = id
+        Base.__setattr__(self, "_id", id)
         self._fix_url(url)
         super(Node, self).__init__()
         if self._id is None:
@@ -317,20 +628,21 @@ class Node(Base):
     @_id.setter
     def _id(self, _id: Optional[AnyUUID]):
         if isinstance(_id, str):
-            _id = UUID(_id)
-        if _id is not None and not isinstance(_id, UUID):
+            _id = uuid.UUID(_id)
+        if _id is not None and not isinstance(_id, uuid.UUID):
             raise TypeError(f"Invalid UUID: {_id!s}")
-        dict.__setattr__(self, "_id", _id)
+        dict.__setitem__(self, "_id", _id)
 
     @property
     def id(self):
-        if not self["id"]:
+        _id = dict.get(self, "id")
+        if not _id:
             self.sync_id()
-        return self["id"]
+        return self["_id"]
 
     @property
     def url(self):
-        return self["url"]
+        return dict.__getitem__(self, "url")
 
     @property
     def resolved(self):
@@ -377,7 +689,14 @@ class Block(ConsentChange):
             "previous_hash": None,
             "transactions": [],
         })
-        super(Block, self).__init__(*args, **kwargs)
+        if args:
+            if len(args) == 1 and isinstance(args[0], dict):
+                items = dict(**args[0])
+                kwargs.update(items)
+            else:
+                items = dict(*args)
+                kwargs.update(items)
+        super(Block, self).__init__(**kwargs)
 
     @property
     def hash(self):
@@ -392,7 +711,7 @@ class Block(ConsentChange):
         return block_hash
 
 
-class Blockchain(Base):
+class Blockchain(WithID):
     def __init__(self,
                  chain: Optional[Iterable[Block]] = None,
                  genesis_block: bool = True,
@@ -423,7 +742,8 @@ class Blockchain(Base):
         ]
         self.setdefault("updated", datetime.utcnow())
         self.setdefault("states", AttributeDict({
-            "consent_change_history": [],       # type: List[str]
+            "consent_change_summary": [],       # type: List[str]
+            "consent_change_history": [],       # type: List[ChangeHistoryItem]
             "consent_change_updated": {},       # type: Dict[ConsentAction, Consent]
             "consent_change_last_id": None,     # type: Optional[uuid.UUID]
         }))
@@ -446,13 +766,13 @@ class Blockchain(Base):
         self["updated"] = datetime.utcnow()
 
     @property
-    def updated(self):
-        return self["updated"]
+    def updated(self) -> datetime:
+        return dict.__getitem__(self, "updated")
 
     def json(self, *_: Any, detail: bool = False, **__: Any) -> JSON:
         return {
             "id": str(self.id),
-            "updated": self.updated.isoformat(),
+            "updated": self.updated,
             "blocks": [block.json() if detail else str(block.id) for block in self.blocks]
         }
 
@@ -469,11 +789,11 @@ class Blockchain(Base):
 
     @property
     def blocks(self) -> List[Block]:
-        return self["blocks"]
+        return dict.__getitem__(self, "blocks")
 
     @blocks.setter
     def blocks(self, chain):
-        self["blocks"] = [Block(block) for block in chain]
+        dict.__setitem__(self, "blocks", [Block(block) for block in chain])
         self._set_updated()
 
     chain = blocks  # alias
@@ -606,14 +926,13 @@ class Blockchain(Base):
         :param previous_hash: Hash of previous Block, or compute it from last block in chain.
         :returns: New Block
         """
-        data = {
+        block = Block({
             "index": len(self.blocks),
             "proof": proof,
             "previous_hash": previous_hash or self.hash(self.blocks[-1]),
             "transactions": self.pending_transactions,
             "consents": self.pending_consents,
-        }
-        block = Block(**data)
+        })
 
         # Reset the current list of transactions
         self.pending_transactions = []
@@ -639,13 +958,19 @@ class Blockchain(Base):
 
         return self.last_block["index"] + 1
 
-    def new_consent(self, action: ConsentAction, consent: bool, expire: datetime) -> int:
+    def new_consent(self,
+                    action: ConsentAction,
+                    consent: bool,
+                    expire: datetime,
+                    subsystems: Optional[List[SubSystem]] = None,
+                    ) -> int:
         """
         Creates a new consents to go into the next mined block.
 
         :param action: consent action to be modified
         :param consent: consent status (granted/revoked) regarding the action
         :param expire: expiration date and time of the consent (none if forever until modified)
+        :param subsystems: metadata about the data onto which consents are applied
         :returns: index of the block that will hold this new consent change
         """
         self.pending_consents.append(Consent(
@@ -653,6 +978,7 @@ class Blockchain(Base):
             expire=expire,
             consent=consent,
             consent_type=ConsentType.CHANGED,
+            subsystems=subsystems,
         ))
         return self.last_block["index"] + 1
 
