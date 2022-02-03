@@ -24,6 +24,7 @@ MAKO = FastAPIMako()
 
 
 def add_metadata(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
+    data["node_shortcuts"] = []
     data["node_id"] = request.app.node.id
     data["node_url"] = request.app.node.url
     data["version"] = __meta__["version"]
@@ -53,7 +54,21 @@ def add_metadata(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
         "label": "label",
         "plain": "",
     }
+    data["ui_shortcuts"] = get_ui_node_links(request)
     return data
+
+
+def get_ui_node_links(request):
+    """
+    Obtains generic UI links combined with specific UI endpoints for the current node.
+    """
+    links = get_links(request, VIEWS, self=False)
+    for link in links:
+        if link["rel"] == "ui":
+            link["title"] = "Node Network"
+        else:
+            link["title"] = link["rel"].replace("_", " ").capitalize()
+    return links
 
 
 def get_chain_shortcuts(request: Request, chain_id: AnyUUID) -> List[schemas.Link]:
@@ -86,15 +101,12 @@ def get_chain_info(request: Request, chain: Blockchain, strip_shortcut: Optional
 @VIEWS.get(
     "/",
     tags=["UI"],
-    summary="Display shortcuts to other pages.",
+    summary="Display Node details, networks nodes and shortcuts to other pages.",
     response_class=HTMLResponse,
 )
-@MAKO.template("ui/templates/view_shortcuts.mako")
+@MAKO.template("ui/templates/view_node.mako")
 async def shortcut_navigate(request: Request):
-    links = get_links(request, VIEWS, self=False)
-    for link in links:
-        link["title"] = link["rel"].replace("_", " ").capitalize()
-    data = {"links": links, "nodes": request.app.nodes}
+    data = {"nodes": request.app.nodes}
     return add_metadata(request, data)
 
 
