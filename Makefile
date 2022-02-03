@@ -243,7 +243,7 @@ print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG)
 .PHONY: docs-openapi-latest
 docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
 	@$(MAKE) -C "$(APP_ROOT)" \
-		DOCS_OPENAPI_TAG=$(APP_VERSION) \
+		DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) \
 		DOCS_OPENAPI_DEST=schema \
 		docs-openapi-format
 
@@ -263,7 +263,7 @@ docs-openapi-only:
 	@mkdir -p "$(DOCS_SCHEMA_DIR)"
 	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)/json" \
 		> "$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json"
-	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-latest
+	@$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) docs-openapi-latest
 	@$(MAKE) -C "$(APP_ROOT)" stop
 
 .PHONY: docs-openapi
@@ -286,8 +286,10 @@ docs-show: $(DOCS_LOCATION)	## display HTML webpage of generated documentation (
 # Bumpversion 'dry' config
 # if 'dry' is specified as target, any bumpversion call using 'BUMP_XARGS' will not apply changes
 BUMP_XARGS ?= --verbose --allow-dirty
+BUMP_DRY := 0
 ifeq ($(filter dry, $(MAKECMDGOALS)), dry)
 	BUMP_XARGS := $(BUMP_XARGS) --dry-run
+	BUMP_DRY := 1
 endif
 
 .PHONY: dry
@@ -302,15 +304,12 @@ bump:	## bump version using VERSION specified as user input (make VERSION=<X.Y.Z
 	@[ "${VERSION}" ] || ( echo ">> 'VERSION' is not set"; exit 1 )
 	@-bash -c '$(CONDA_CMD) test -f "$(CONDA_ENV_PATH)/bin/bump2version" || pip install $(PIP_XARGS) bump2version'
 	@-bash -c '$(CONDA_CMD) bump2version $(BUMP_XARGS) --new-version "${VERSION}" patch;'
-
-# must bump and apply changes to obtain new version first, then commit back the generate schema with updated tag
-.PHONY: release
-release:  ## generate a new release version and related documentation
-	@$(MAKE) VERSION="${VERSION}" -C "$(APP_ROOT)" bump
-	@$(MAKE) -C "$(APP_ROOT)" docs-openapi-only
-	@git add "$(DOCS_SCHEMA_DIR)/openapi-$(APP_VERSION).json" && \
+	@[ ${BUMP_DRY} -ne 1 ] && ( \
+		$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG="${VERSION}" docs-openapi-only && \
+		git add "$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json" && \
 		git commit --amend --no-edit && \
-		git tag -f "$(APP_VERSION)"
+		git tag -f "${VERSION}" \
+	) || echo "Would generate OpenAPI schema [$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json]";
 
 ## --- Installation targets --- ##
 
