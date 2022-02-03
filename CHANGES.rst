@@ -11,6 +11,7 @@ Changes
   consents are being applied.
 * Add more extensive documentation about content metadata when ``subsystems`` are involved.
 * Add more CSS definitions for different field types allowing better interpretation of consents metadata at a glance.
+* Improve application log message format and align ``uvicorn`` logging details with it.
 * Fix import error when computing block hash.
 * Fix default modification ``ContentType`` from ``CREATED`` to new ``UNDEFINED``.
   This better explains why the creation time of a dynamically generated consent during *latest consents* listing
