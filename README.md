@@ -6,9 +6,9 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 > Évaluer l’utilisation de la technologie blockchain pour garantir l’intégrité et la traçabilité des données privées.
 
 
-[![version badge](https://img.shields.io/badge/latest%20version-1.1.0-blue)][version-url]
+[![version badge](https://img.shields.io/badge/latest%20version-2.0.0-blue)][version-url]
 
-[version-url]: https://github.com/crim-ca/blockchain/tree/1.1.0
+[version-url]: https://github.com/crim-ca/blockchain/tree/2.0.0
 
 ## Installation
 
@@ -79,21 +79,21 @@ Follow the instructions below to create a local Docker container:
 2. Build the docker container
 
 ```shell
-docker build -t blockchain:1.1.0 .
+docker build -t blockchain:2.0.0 .
 ```
 
 3. Run the container
 
 ```shell
-docker run --rm -p 80:5000 blockchain:1.1.0 <blockchain-parameters>
+docker run --rm -p 80:5000 blockchain:2.0.0 <blockchain-parameters>
 ```
 
 4. To add more instances, vary the public port number before the colon:
 
 ```shell
-docker run --rm -p "81:5000" blockchain:1.1.0 <blockchain-parameters>
-docker run --rm -p "82:5000" blockchain:1.1.0 <blockchain-parameters>
-docker run --rm -p "83:5000" blockchain:1.1.0 <blockchain-parameters>
+docker run --rm -p "81:5000" blockchain:2.0.0 <blockchain-parameters>
+docker run --rm -p "82:5000" blockchain:2.0.0 <blockchain-parameters>
+docker run --rm -p "83:5000" blockchain:2.0.0 <blockchain-parameters>
 ```
 
 ## Contributing

@@ -8,7 +8,7 @@ MAKEFILE_NAME := $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 # Application
 APP_ROOT    := $(abspath $(lastword $(MAKEFILE_NAME))/..)
 APP_NAME    := blockchain
-APP_VERSION := 1.1.0
+APP_VERSION := 2.0.0
 APP_DB_DIR  ?= /tmp/blockchain
 APP_PORT    ?= 5000
 APP_SECRET  ?= secret
@@ -306,7 +306,7 @@ bump:	## bump version using VERSION specified as user input (make VERSION=<X.Y.Z
 	@-bash -c '$(CONDA_CMD) bump2version $(BUMP_XARGS) --new-version "${VERSION}" patch;'
 	@[ ${BUMP_DRY} -ne 1 ] && ( \
 		$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG="${VERSION}" docs-openapi-only && \
-		git add "$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json" && \
+		git add "$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json" "$(DOCS_SCHEMA_DIR)/schema.json" && \
 		git commit --amend --no-edit && \
 		git tag -f "${VERSION}" \
 	) || echo "Would generate OpenAPI schema [$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json]";

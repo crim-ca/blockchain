@@ -7,6 +7,11 @@ Changes
 `Unreleased <https://github.com/crim-ca/blockchain/tree/master>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
+* Nothing yet.
+
+`2.0.0 <https://github.com/crim-ca/blockchain/tree/2.0.0>`_ (2022-02-03)
+---------------------------------------------------------------------------------------------------------------
+
 * Add ``subsystems`` definitions to blocks stored in the blockchains to detail referenced data for which the
   consents are being applied.
 * Add more extensive documentation about content metadata when ``subsystems`` are involved.
