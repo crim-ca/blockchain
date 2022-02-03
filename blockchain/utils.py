@@ -1,8 +1,7 @@
-import json
-
-import cchardet
+import copy
 import hashlib
 import hmac
+import json
 import logging
 import os
 import sys
@@ -12,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Coroutine, List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Request
 from requests_toolbelt import multipart
+from uvicorn.config import LOGGING_CONFIG
 
 from blockchain.typedefs import JSON
 
@@ -76,6 +76,25 @@ def set_logger_config(logger: logging.Logger,
             handler.setFormatter(logging.Formatter(fmt=message_format, datefmt=datetime_format))
         logger.addHandler(handler)
     return logger
+
+
+def update_uvicorn_logger_config(logger: logging.Logger) -> dict:
+    config = copy.deepcopy(LOGGING_CONFIG)
+    if logger and logger.handlers:
+        handler = logger.handlers[0]
+        if handler.formatter:
+            fmt = handler.formatter
+            msg = fmt._fmt  # noqa
+            for log_fmt in config.get("formatters", {}).values():
+                msg_fmt = log_fmt["fmt"]
+                for field in ["levelprefix", "levelname"]:
+                    field_fmt = f"%({field})s"
+                    if field_fmt in msg_fmt:
+                        msg_fmt = msg_fmt.replace(field_fmt + " ", "")
+                        msg_fmt = msg_fmt.replace(field_fmt, "")
+                msg_fmt = msg.replace("%(message)s", msg_fmt)
+                log_fmt["fmt"] = msg_fmt
+    return config
 
 
 def is_uuid(obj: Any) -> bool:
