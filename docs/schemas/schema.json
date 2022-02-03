@@ -385,14 +385,14 @@
                 "operationId": "view_consents_chains__chain_id__consents_get",
                 "parameters": [
                     {
+                        "name": "chain_id",
+                        "in": "path",
                         "required": true,
                         "schema": {
                             "title": "Chain Id",
                             "type": "string",
                             "format": "uuid4"
-                        },
-                        "name": "chain_id",
-                        "in": "path"
+                        }
                     }
                 ],
                 "responses": {
@@ -422,29 +422,20 @@
                     "Consents"
                 ],
                 "summary": "Create a new consent change to be registered on the blockchain.",
+                "description": "Consents metadata can be provided using JSON or multipart body. See [https://github.com/crim-ca/blockchain/blob/master/docs/consents.md] for more details.",
                 "operationId": "update_consent_chains__chain_id__consents_post",
                 "parameters": [
                     {
+                        "name": "chain_id",
+                        "in": "path",
                         "required": true,
                         "schema": {
                             "title": "Chain Id",
                             "type": "string",
                             "format": "uuid4"
-                        },
-                        "name": "chain_id",
-                        "in": "path"
+                        }
                     }
                 ],
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/ConsentRequestBody"
-                            }
-                        }
-                    },
-                    "required": true
-                },
                 "responses": {
                     "201": {
                         "description": "Updated consents with new block in chain.",
@@ -462,6 +453,382 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                },
+                "requestBody": {
+                    "description": "Contents metadata definitions.",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "title": "ConsentRequestBody",
+                                "type": "object",
+                                "properties": {
+                                    "action": {
+                                        "$ref": "#/components/schemas/ConsentAction"
+                                    },
+                                    "consent": {
+                                        "title": "Consent",
+                                        "type": "boolean"
+                                    },
+                                    "expire": {
+                                        "title": "Expire",
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "subsystems": {
+                                        "title": "Subsystems",
+                                        "description": "Subsystem definitions and metadata related to data with applied consents.",
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/components/schemas/SubSystemRequestBody"
+                                        }
+                                    }
+                                },
+                                "required": [
+                                    "action",
+                                    "consent"
+                                ],
+                                "definitions": {
+                                    "ConsentAction": {
+                                        "title": "ConsentAction",
+                                        "description": "An enumeration.",
+                                        "enum": [
+                                            "first-name-read",
+                                            "first-name-write",
+                                            "last-name-read",
+                                            "last-name-write",
+                                            "email-read",
+                                            "email-write",
+                                            "read-data",
+                                            "share-data",
+                                            "write-data",
+                                            "read-file",
+                                            "share-file",
+                                            "write-file"
+                                        ]
+                                    },
+                                    "DataType": {
+                                        "title": "DataType",
+                                        "description": "An enumeration.",
+                                        "enum": [
+                                            "text",
+                                            "audio",
+                                            "image",
+                                            "video",
+                                            "document",
+                                            "message",
+                                            "other",
+                                            "undefined"
+                                        ]
+                                    },
+                                    "SubSystemRequestBody": {
+                                        "title": "SubSystemRequestBody",
+                                        "type": "object",
+                                        "properties": {
+                                            "media_type": {
+                                                "title": "Media Type",
+                                                "description": "Explicit IANA data content format (defaults to plain/text or octets based on data if omitted).",
+                                                "type": "string"
+                                            },
+                                            "data": {
+                                                "title": "Data",
+                                                "description": "Literal data that contents apply to for validation (not stored in blockchain).",
+                                                "anyOf": [
+                                                    {
+                                                        "type": "string",
+                                                        "format": "binary"
+                                                    },
+                                                    {
+                                                        "type": "string"
+                                                    }
+                                                ]
+                                            },
+                                            "data_type": {
+                                                "description": "Category of the data which consents are applied onto.",
+                                                "allOf": [
+                                                    {
+                                                        "$ref": "#/components/schemas/DataType"
+                                                    }
+                                                ]
+                                            },
+                                            "data_description": {
+                                                "title": "Data Description",
+                                                "description": "Details providing more context about the consented data.",
+                                                "type": "string"
+                                            },
+                                            "data_source": {
+                                                "title": "Data Source",
+                                                "description": "Provenance of the data (e.g.: URL, services, etc.).",
+                                                "type": "string"
+                                            },
+                                            "data_provider": {
+                                                "title": "Data Provider",
+                                                "description": "Data provider that generates the consents requirements.",
+                                                "type": "string"
+                                            },
+                                            "metadata": {
+                                                "title": "Metadata",
+                                                "description": "Additional metadata to be associated with the consents to better describe them.",
+                                                "anyOf": [
+                                                    {
+                                                        "type": "object",
+                                                        "additionalProperties": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "boolean"
+                                                                },
+                                                                {
+                                                                    "type": "string"
+                                                                },
+                                                                {
+                                                                    "type": "integer"
+                                                                },
+                                                                {
+                                                                    "type": "number"
+                                                                },
+                                                                {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "anyOf": [
+                                                                            {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            {
+                                                                                "type": "string"
+                                                                            },
+                                                                            {
+                                                                                "type": "integer"
+                                                                            },
+                                                                            {
+                                                                                "type": "number"
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    {
+                                                        "type": "string"
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "required": [
+                                            "data",
+                                            "data_type"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            }
+                        },
+                        "multipart/related": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "meta": {
+                                        "description": "Metadata consents part.",
+                                        "type": {
+                                            "title": "ConsentRequestBody",
+                                            "type": "object",
+                                            "properties": {
+                                                "action": {
+                                                    "$ref": "#/components/schemas/ConsentAction"
+                                                },
+                                                "consent": {
+                                                    "title": "Consent",
+                                                    "type": "boolean"
+                                                },
+                                                "expire": {
+                                                    "title": "Expire",
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                },
+                                                "subsystems": {
+                                                    "title": "Subsystems",
+                                                    "description": "Subsystem definitions and metadata related to data with applied consents.",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/SubSystemRequestBody"
+                                                    }
+                                                }
+                                            },
+                                            "required": [
+                                                "action",
+                                                "consent"
+                                            ],
+                                            "definitions": {
+                                                "ConsentAction": {
+                                                    "title": "ConsentAction",
+                                                    "description": "An enumeration.",
+                                                    "enum": [
+                                                        "first-name-read",
+                                                        "first-name-write",
+                                                        "last-name-read",
+                                                        "last-name-write",
+                                                        "email-read",
+                                                        "email-write",
+                                                        "read-data",
+                                                        "share-data",
+                                                        "write-data",
+                                                        "read-file",
+                                                        "share-file",
+                                                        "write-file"
+                                                    ]
+                                                },
+                                                "DataType": {
+                                                    "title": "DataType",
+                                                    "description": "An enumeration.",
+                                                    "enum": [
+                                                        "text",
+                                                        "audio",
+                                                        "image",
+                                                        "video",
+                                                        "document",
+                                                        "message",
+                                                        "other",
+                                                        "undefined"
+                                                    ]
+                                                },
+                                                "SubSystemRequestBody": {
+                                                    "title": "SubSystemRequestBody",
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "media_type": {
+                                                            "title": "Media Type",
+                                                            "description": "Explicit IANA data content format (defaults to plain/text or octets based on data if omitted).",
+                                                            "type": "string"
+                                                        },
+                                                        "data": {
+                                                            "title": "Data",
+                                                            "description": "Literal data that contents apply to for validation (not stored in blockchain).",
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "string",
+                                                                    "format": "binary"
+                                                                },
+                                                                {
+                                                                    "type": "string"
+                                                                }
+                                                            ]
+                                                        },
+                                                        "data_type": {
+                                                            "description": "Category of the data which consents are applied onto.",
+                                                            "allOf": [
+                                                                {
+                                                                    "$ref": "#/components/schemas/DataType"
+                                                                }
+                                                            ]
+                                                        },
+                                                        "data_description": {
+                                                            "title": "Data Description",
+                                                            "description": "Details providing more context about the consented data.",
+                                                            "type": "string"
+                                                        },
+                                                        "data_source": {
+                                                            "title": "Data Source",
+                                                            "description": "Provenance of the data (e.g.: URL, services, etc.).",
+                                                            "type": "string"
+                                                        },
+                                                        "data_provider": {
+                                                            "title": "Data Provider",
+                                                            "description": "Data provider that generates the consents requirements.",
+                                                            "type": "string"
+                                                        },
+                                                        "metadata": {
+                                                            "title": "Metadata",
+                                                            "description": "Additional metadata to be associated with the consents to better describe them.",
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "object",
+                                                                    "additionalProperties": {
+                                                                        "anyOf": [
+                                                                            {
+                                                                                "type": "boolean"
+                                                                            },
+                                                                            {
+                                                                                "type": "string"
+                                                                            },
+                                                                            {
+                                                                                "type": "integer"
+                                                                            },
+                                                                            {
+                                                                                "type": "number"
+                                                                            },
+                                                                            {
+                                                                                "type": "array",
+                                                                                "items": {
+                                                                                    "anyOf": [
+                                                                                        {
+                                                                                            "type": "boolean"
+                                                                                        },
+                                                                                        {
+                                                                                            "type": "string"
+                                                                                        },
+                                                                                        {
+                                                                                            "type": "integer"
+                                                                                        },
+                                                                                        {
+                                                                                            "type": "number"
+                                                                                        }
+                                                                                    ]
+                                                                                }
+                                                                            }
+                                                                        ]
+                                                                    }
+                                                                },
+                                                                {
+                                                                    "type": "string"
+                                                                }
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "data",
+                                                        "data_type"
+                                                    ],
+                                                    "additionalProperties": false
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "additionalProperties": {
+                                    "oneOf": [
+                                        {
+                                            "type": "byte"
+                                        },
+                                        {
+                                            "type": "string"
+                                        },
+                                        {}
+                                    ]
+                                }
+                            },
+                            "encoding": {
+                                "meta": {
+                                    "contentType": "application/json",
+                                    "headers": {
+                                        "Content-ID": {
+                                            "type": "string",
+                                            "enum": [
+                                                "meta"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "additionalProperties": {
+                                    "contentType": "application/json",
+                                    "headers": {
+                                        "Content-ID": {
+                                            "type": "string"
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -753,7 +1120,7 @@
                 "tags": [
                     "UI"
                 ],
-                "summary": "Display shortcuts to other pages.",
+                "summary": "Display Node details, networks nodes and shortcuts to other pages.",
                 "operationId": "shortcut_navigate_ui__get",
                 "responses": {
                     "200": {
@@ -1069,31 +1436,15 @@
                     "last-name-read",
                     "last-name-write",
                     "email-read",
-                    "email-write"
+                    "email-write",
+                    "read-data",
+                    "share-data",
+                    "write-data",
+                    "read-file",
+                    "share-file",
+                    "write-file"
                 ],
                 "description": "An enumeration."
-            },
-            "ConsentRequestBody": {
-                "title": "ConsentRequestBody",
-                "required": [
-                    "action",
-                    "consent"
-                ],
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "$ref": "#/components/schemas/ConsentAction"
-                    },
-                    "consent": {
-                        "title": "Consent",
-                        "type": "boolean"
-                    },
-                    "expire": {
-                        "title": "Expire",
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                }
             },
             "ConsentSchema": {
                 "title": "ConsentSchema",
@@ -1102,7 +1453,8 @@
                     "action",
                     "consent",
                     "type",
-                    "created"
+                    "created",
+                    "subsystems"
                 ],
                 "type": "object",
                 "properties": {
@@ -1142,6 +1494,14 @@
                         "type": "string",
                         "description": "Moment when the consent should be considered expired. Revert back automatically to revoked consent when datetime is reached. Consents never expire if unspecified, unless explicitly updated with revoked consent.",
                         "format": "date-time"
+                    },
+                    "subsystems": {
+                        "title": "Subsystems",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SubSystemResponseBody"
+                        },
+                        "description": "Subsystem definitions and metadata related to data with applied consents."
                     }
                 }
             },
@@ -1150,7 +1510,22 @@
                 "enum": [
                     "created",
                     "changed",
-                    "expired"
+                    "expired",
+                    "undefined"
+                ],
+                "description": "An enumeration."
+            },
+            "DataType": {
+                "title": "DataType",
+                "enum": [
+                    "text",
+                    "audio",
+                    "image",
+                    "video",
+                    "document",
+                    "message",
+                    "other",
+                    "undefined"
                 ],
                 "description": "An enumeration."
             },
@@ -1377,6 +1752,97 @@
                             "$ref": "#/components/schemas/BlockSchema"
                         },
                         "description": "Blocks that form the resolved chain."
+                    }
+                }
+            },
+            "SubSystemResponseBody": {
+                "title": "SubSystemResponseBody",
+                "required": [
+                    "media_type",
+                    "data_hash",
+                    "data_type"
+                ],
+                "type": "object",
+                "properties": {
+                    "media_type": {
+                        "title": "Media Type",
+                        "type": "string",
+                        "description": "Specified or resolved IANA data content format."
+                    },
+                    "data_hash": {
+                        "title": "Data Hash",
+                        "type": "string",
+                        "description": "Encrypted data representation of validation of associated consents."
+                    },
+                    "data_type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DataType"
+                            }
+                        ],
+                        "description": "Category of the data which consents are applied onto."
+                    },
+                    "data_description": {
+                        "title": "Data Description",
+                        "type": "string",
+                        "description": "Details providing more context about the consented data."
+                    },
+                    "data_source": {
+                        "title": "Data Source",
+                        "type": "string",
+                        "description": "Provenance of the data (e.g.: URL, services, etc.)."
+                    },
+                    "data_provider": {
+                        "title": "Data Provider",
+                        "type": "string",
+                        "description": "Data provider that generates the consents requirements."
+                    },
+                    "metadata": {
+                        "title": "Metadata",
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        {
+                                            "type": "boolean"
+                                        },
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "integer"
+                                        },
+                                        {
+                                            "type": "number"
+                                        },
+                                        {
+                                            "type": "array",
+                                            "items": {
+                                                "anyOf": [
+                                                    {
+                                                        "type": "boolean"
+                                                    },
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "integer"
+                                                    },
+                                                    {
+                                                        "type": "number"
+                                                    }
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "description": "Additional metadata to be associated with the consents to better describe them."
                     }
                 }
             },
