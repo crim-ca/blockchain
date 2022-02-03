@@ -11,6 +11,8 @@ Changes
   consents are being applied.
 * Add more extensive documentation about content metadata when ``subsystems`` are involved.
 * Add more CSS definitions for different field types allowing better interpretation of consents metadata at a glance.
+* Add UI shortcuts to every page allowing to return back to initial network nodes and chains listing pages after
+  visiting more specific children pages of a given blockchain blocks or consents.
 * Replace ``changes`` field returned by API ``GET /chains/{id}/consents`` request from generic strings to detailed
   JSON representation of consent history changes. Old string representation is returned in new ``summary`` field.
 * Improve application log message format and align ``uvicorn`` logging details with it.
