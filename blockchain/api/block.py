@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request
 
-from blockchain import AnyRef
 from blockchain.api import schemas
 from blockchain.api.chain import get_block
+from blockchain.typedefs import AnyRef
 
 BLOCK = APIRouter(prefix="/blocks")
 

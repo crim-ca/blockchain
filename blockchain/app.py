@@ -11,13 +11,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic.errors import PydanticTypeError
 from pydantic.validators import bool_validator, int_validator, float_validator
-from uvicorn import Config, Server
+from uvicorn.config import Config
+from uvicorn.server import Server
 
-from blockchain import AnyUUID, __meta__, __title__
+from blockchain import __meta__, __title__
 from blockchain.api import BLOCK, CHAIN, MAIN, MAKO, NODES, VIEWS, schemas
 from blockchain.database import DB_TYPES, Database
 from blockchain.impl import Blockchain, MultiChain, Node
-from blockchain.utils import get_logger, set_logger_config
+from blockchain.typedefs import AnyUUID
+from blockchain.utils import get_logger, set_logger_config, update_uvicorn_logger_config
 
 LOGGER = get_logger("blockchain")
 
@@ -150,7 +152,8 @@ def main(**args):
 
     # set full module config
     level = logging.DEBUG if ns.debug else logging.ERROR if ns.quiet else logging.ERROR
-    logger = set_logger_config(LOGGER, level=level, force_stdout=ns.verbose, file=ns.log)
+    msg_fmt = "[%(asctime)s] %(levelname)-10.10s [%(threadName)s][%(name)s] %(message)s"
+    logger = set_logger_config(LOGGER, level=level, force_stdout=ns.verbose, file=ns.log, message_format=msg_fmt)
     kwargs = parse_xargs(argv, logger)
     run(level=level, logger=logger, app=True, secret=ns.secret, new=ns.new,
         host=ns.host, port=ns.port, db=ns.db, node=ns.node, nodes=ns.nodes, **kwargs)
@@ -159,7 +162,7 @@ def main(**args):
 def run(host="0.0.0.0",         # type: str
         port=5001,              # type: int
         db=None,                # type: Union[str, Database]
-        node=None,              # type: AnyUUID
+        node=None,              # type: Optional[AnyUUID]
         nodes=None,             # type: Union[str, List[str], List[List[str]]]
         new=False,              # type: bool
         secret=None,            # type: str
@@ -203,12 +206,15 @@ def run(host="0.0.0.0",         # type: str
                 if urlparse(node_ref.url) == urlparse(APP.node.url):
                     raise ValueError("Cannot use current APP endpoint as other consensus node endpoint.")
         if app:
+            # propagate logging config
+            config = update_uvicorn_logger_config(logger)
             server = Server(
                 Config(
                     APP,
                     host=host,
                     port=port,
                     log_level=level,
+                    log_config=config,
                     reload=True,
                     **kwargs
                 ),
