@@ -15,6 +15,7 @@ Changes
 * Fix default modification ``ContentType`` from ``CREATED`` to new ``UNDEFINED``.
   This better explains why the creation time of a dynamically generated consent during *latest consents* listing
   always changes upon each API or UI call.
+* Fix potential incomplete save of blockchain following corrupted data in block.
 
 `1.1.0 <https://github.com/crim-ca/blockchain/tree/1.1.0>`_ (2022-01-26)
 ---------------------------------------------------------------------------------------------------------------

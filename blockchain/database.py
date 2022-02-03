@@ -170,10 +170,14 @@ class FileSystemDatabase(Database):
         """
         store_path, chain_path = self.get_chain_location(chain.id)
         os.makedirs(store_path, exist_ok=True)
-        with open(chain_path, "w") as chain_file:
-            json.dump(chain.json(), chain_file)
+        # save blocks (as needed) first to avoid updating chain with missing
+        # block if one block has corrupted data causing it to fail save
         for block in chain.blocks:
+            LOGGER.debug("Saving block %s (if missing)...", block.id)
             self.save_block(block, chain_id=chain.id)
+        with open(chain_path, "w") as chain_file:
+            LOGGER.debug("Saving updated blockchain %s definition with new block(s)...", chain.id)
+            json.dump(chain.json(), chain_file)
 
     def save_block(self, block, chain_id=None):
         # type: (Block, Optional[AnyUUID]) -> None
