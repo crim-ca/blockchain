@@ -174,8 +174,51 @@ class DataType(EnumNameHyphenCase):
     UNDEFINED = auto()
 
 
-class Null(object):
-    pass
+class SingletonMeta(type):
+    __instance__ = None  # type: Optional[SingletonMeta]
+
+    def __call__(cls):
+        if cls.__instance__ is None:
+            cls.__instance__ = super(SingletonMeta, cls).__call__()
+        return cls.__instance__
+
+
+class Null(metaclass=SingletonMeta):
+    """
+    Represents a ``null`` value to differentiate from ``None``.
+    """
+
+    # pylint: disable=E1101,no-member
+    def __eq__(self, other):
+        # type: (Any) -> bool
+        """
+        Makes any instance of :class:`NullType` compare as the same (ie: Singleton).
+        """
+        return (isinstance(other, NullType)                                     # noqa: W503
+                or other is null                                                # noqa: W503
+                or other is self.__instance__                                   # noqa: W503
+                or (inspect.isclass(other) and issubclass(other, NullType)))    # noqa: W503
+
+    def __getattr__(self, item):
+        # type: (Any) -> NullType
+        """
+        Makes any property getter return ``null`` to make any sub-item also look like ``null``.
+
+        Useful for example in the case of type comparators that do not validate their
+        own type before accessing a property that they expect to be there. Without this
+        the get operation on ``null`` would raise an unknown key or attribute error.
+        """
+        return null
+
+    def __repr__(self):
+        return "<null>"
+
+    @staticmethod
+    def __nonzero__():
+        return False
+
+    __bool__ = __nonzero__
+    __len__ = __nonzero__
 
 
 null = Null()
@@ -193,6 +236,7 @@ class SubSystem(Base):
                  metadata: Optional[Union[Mapping, str]] = None,
                  **kwargs: Any,
                  ) -> None:
+        super(SubSystem, self).__init__(**kwargs)
         if data is null and data_hash:  # hash not in request body
             dict.__setattr__(self, "data_hash", data_hash)  # load from storage
         elif data:
@@ -202,6 +246,7 @@ class SubSystem(Base):
             dict.__setattr__(self, "data_hash", None)   # metadata only subsystem
         else:
             raise ValueError("Missing either literal data to hash or precomputed data hash.")
+        dict.__setattr__(self, "data_type", data_type)
         if data and not media_type:
             media_type = magic.from_buffer(data, mime=True)
         dict.__setattr__(self, "media_type", media_type)  # attempt auto-resolve media-type from data type
@@ -214,7 +259,6 @@ class SubSystem(Base):
         dict.__setattr__(self, "data_provider", data_provider)
         dict.__setattr__(self, "data_description", data_description)
         dict.__setattr__(self, "metadata", metadata)
-        super(SubSystem, self).__init__(**kwargs)
 
     @property
     def data_type(self) -> DataType:
@@ -262,7 +306,7 @@ class SubSystem(Base):
             else:
                 self["media_type"] = "plain/text"
             media_type = self["media_type"]
-        if self.data_type is None:
+        if not isinstance(self.data_type, DataType):
             if not media_type:
                 self.data_type = DataType.UNDEFINED
             else:
@@ -350,7 +394,7 @@ class Consent(WithDatetime):
 
     @subsystems.setter
     def subsystems(self, subsystems: List[Union[SubSystem, JSON]]):
-        self["subsystems"] = [SubSystem(**sub) if not isinstance(sub, SubSystem) else sub for sub in subsystems]
+        self["subsystems"] = [SubSystem(**dict(sub)) if not isinstance(sub, SubSystem) else sub for sub in subsystems]
 
 
 class ConsentChange(WithDatetime):
