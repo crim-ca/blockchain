@@ -96,11 +96,13 @@ Those additional definitions don't require to have any associated multipart cont
 ```http request
 POST /chains/{{chain_id}}/consents
 Host: localhost:5000
-Content-Type: multipart/related; boundary="simple boundary"
+Content-Type: multipart/related; boundary="simple_boundary"
 
---simple boundary
+--simple_boundary
 Content-Type: application/json; charset=UTF-8
 Content-ID: meta
+
+<CRLF><CRLF>
 
 {
     "action": "share-data",
@@ -116,18 +118,38 @@ Content-ID: meta
     ]
 }
 
---simple boundary
+<CRLF>
+
+--simple_boundary
 Content-Type: image/png; base64
 Content-Description: profile image
 Content-ID: <PROFILE-IMAGE>
 
+<CRLF><CRLF>
+
 iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAAC...
 
---simple boundary--
+<CRLF>
+
+--simple_boundary--
+<CRLF>
 ```
 
 **WARNING**
 
-As per [RFC-7578 section 4.1](https://datatracker.ietf.org/doc/html/rfc7578#section-4.1), parts MUST be separated by
-``CRLF`` instead of ``LF``. In the above example, all *empty lines* (i.e.: following each ``Content-ID`` and before 
-each boundary in this case), should therefore be represented as double ``CRLF`` entries in the request body.
+As per [RFC-7578 section 4.1](https://datatracker.ietf.org/doc/html/rfc7578#section-4.1), parts **MUST** be separated
+by ``CRLF`` (``\r\n``) instead of ``LF`` (``\n``), followed by ``--<boundary>``. Furthermore, parts headers and contents 
+should be separated by *two* ``CRLF``. Positions and specific amount of ``CRLF`` required for correct parsing of parts
+is represented *explicitly* by ``<CRLF>`` in the above example.
+
+Note that any other whitespace characters (such as indents and newlines within the JSON part or the `LF` around the 
+base64 data of the image in the above example) would be added *literally* if the contents were provided as *visually* 
+represented above. For real request submission, whitespaces (except where indicated by ``<CRLF>``) should all be removed 
+from the content to ensure data parts are parsed as intended. In the above example, passing the image data as *visually* 
+represented would cause it to be read *literally* as ``<LF><LF><base64-data><LF><LF>``, which would incorrectly impact 
+the produced hash into a different value to represent this data in the generated consent metadata. It is also important 
+**NOT** including a second ``<CRLF>`` after the part data, otherwise it would be parsed as ``<data><CRLF>`` instead of 
+only ``<data>``.
+
+Only for the ``meta`` part, additional newlines and indents are *acceptable* since it is parsed and converted to JSON 
+contents to combine this metadata with other ``Content-ID`` related parts.  
