@@ -73,8 +73,7 @@ class Base(AttributeDict, abc.ABC):
         return dict.__repr__(self)
 
     # FIXME: remove when integrated (https://github.com/mewwts/addict/pull/139)
-    def json(self, force=True):
-        # type: (bool) -> "JSON"
+    def json(self, force=True) -> JSON:
         """
         JSON representation of the data.
         """
@@ -110,7 +109,7 @@ class WithDatetime(Base):
     def __init__(self, *args, **kwargs):
         # generate or set created datetime
         created = kwargs.pop("created", kwargs.pop("timestamp", None))
-        dict.__setattr__(self, "created", created or self.created)
+        Base.__setattr__(self, "created", created or self.created)
         super(WithDatetime, self).__init__(*args, **kwargs)
 
     @property
@@ -125,7 +124,7 @@ class WithDatetime(Base):
     def created(self, created: Optional[Union[str, datetime]]) -> None:
         if created is not None and isinstance(created, str):
             created = datetime.fromisoformat(created)
-        dict.__setitem__(self, "created", created)
+        Base.__setitem__(self, "created", created)
 
 
 class Transaction(Base):
@@ -238,28 +237,34 @@ class SubSystem(Base):
                  **kwargs: Any,
                  ) -> None:
         super(SubSystem, self).__init__(**kwargs)
+        # NOTE: use 'Base' for below operations to generate the undefined properties required by 'json()' method
         if data is null and data_hash:  # hash not in request body
-            dict.__setattr__(self, "data_hash", data_hash)  # load from storage
+            Base.__setattr__(self, "data_hash", data_hash)  # load from storage
         elif data:
             data_hash = compute_hash(data)
-            dict.__setattr__(self, "data_hash", data_hash)
+            Base.__setattr__(self, "data_hash", data_hash)
         elif data is None and data_hash is None:  # data=None mean explicit None (JSON null) in request
-            dict.__setattr__(self, "data_hash", None)   # metadata only subsystem
+            Base.__setattr__(self, "data_hash", None)   # metadata only subsystem
         else:
             raise ValueError("Missing either literal data to hash or precomputed data hash.")
-        dict.__setattr__(self, "data_type", data_type)
+        Base.__setattr__(self, "data_type", data_type)
         if data and not media_type:
             media_type = magic.from_buffer(data, mime=True)
-        dict.__setattr__(self, "media_type", media_type)  # attempt auto-resolve media-type from data type
+        Base.__setattr__(self, "media_type", media_type)  # attempt auto-resolve media-type from data type
         if self.data_type != data_type:
             if data_type is not None:
                 self.data_type = data_type   # update if not resolved or different
             else:
                 self.data_type = DataType.UNDEFINED
-        dict.__setattr__(self, "data_source", data_source)
-        dict.__setattr__(self, "data_provider", data_provider)
-        dict.__setattr__(self, "data_description", data_description)
-        dict.__setattr__(self, "metadata", metadata)
+        Base.__setattr__(self, "data_source", data_source)
+        Base.__setattr__(self, "data_provider", data_provider)
+        Base.__setattr__(self, "data_description", data_description)
+        Base.__setattr__(self, "metadata", metadata)
+
+    def json(self, force=True) -> JSON:
+        data = super(SubSystem, self).json(force=force)
+        data.pop("data", None)  # make sure literal data never makes its way here (to ensure privacy)
+        return data
 
     @property
     def data_type(self) -> DataType:
@@ -583,7 +588,14 @@ class Block(ConsentChange):
             "previous_hash": None,
             "transactions": [],
         })
-        super(Block, self).__init__(*args, **kwargs)
+        if args:
+            if len(args) == 1 and isinstance(args[0], dict):
+                items = dict(**args[0])
+                kwargs.update(items)
+            else:
+                items = dict(*args)
+                kwargs.update(items)
+        super(Block, self).__init__(**kwargs)
 
     @property
     def hash(self):
@@ -812,14 +824,13 @@ class Blockchain(Base):
         :param previous_hash: Hash of previous Block, or compute it from last block in chain.
         :returns: New Block
         """
-        data = {
+        block = Block({
             "index": len(self.blocks),
             "proof": proof,
             "previous_hash": previous_hash or self.hash(self.blocks[-1]),
             "transactions": self.pending_transactions,
             "consents": self.pending_consents,
-        }
-        block = Block(**data)
+        })
 
         # Reset the current list of transactions
         self.pending_transactions = []

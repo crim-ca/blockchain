@@ -16,6 +16,7 @@ Changes
   This better explains why the creation time of a dynamically generated consent during *latest consents* listing
   always changes upon each API or UI call.
 * Fix potential incomplete save of blockchain following corrupted data in block.
+* Fix block creation from direct dictionary instead of keyword arguments.
 
 `1.1.0 <https://github.com/crim-ca/blockchain/tree/1.1.0>`_ (2022-01-26)
 ---------------------------------------------------------------------------------------------------------------
