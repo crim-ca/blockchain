@@ -27,6 +27,20 @@ def add_metadata(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
     data["node_id"] = request.app.node.id
     data["node_url"] = request.app.node.url
     data["version"] = __meta__["version"]
+    # generic styles to applied on detected fields using 'get_styled_value' (see 'utils.mako')
+    data["styles"] = {
+        "action": "enum code nowrap",
+        "type": "enum code",
+        "consent": "bool",
+        "created": "date wrap",
+        "expire": "date wrap",
+        "data_type": "enum",
+        "data_provider": "",
+        "data_hash": "hash",
+        "updated-datetime": "date",
+        "verified-status": "bool",
+        "outdated-status": "bool",
+    }
     return data
 
 
@@ -137,4 +151,22 @@ async def display_consents(request: Request, chain_id: UUID4):
     chain = get_chain(request.app, chain_id)
     data = await view_consents(request, chain.id)
     data.update(get_chain_info(request, chain, strip_shortcut="consents"))
+    data.update({
+        "consent_fields": {
+            "action": "Action",
+            "consent": "Consent",
+            "type": "Type",
+            "created": "Created",
+            "expire": "Expire"
+        },
+        "subsystem_fields": {
+            "data_type": "Type",
+            "data_description": "Description",
+            "data_source": "Source",
+            "data_provider": "Provider",
+            "data_hash": "Hash",
+            "media_type": "Media-Type",
+            "metadata": "Extra Metadata",
+        }
+    })
     return add_metadata(request, data)

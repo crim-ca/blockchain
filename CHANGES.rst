@@ -10,7 +10,11 @@ Changes
 * Add ``subsystems`` definitions to blocks stored in the blockchains to detail referenced data for which the
   consents are being applied.
 * Add more extensive documentation about content metadata when ``subsystems`` are involved.
+* Add more CSS definitions for different field types allowing better interpretation of consents metadata at a glance.
 * Fix import error when computing block hash.
+* Fix default modification ``ContentType`` from ``CREATED`` to new ``UNDEFINED``.
+  This better explains why the creation time of a dynamically generated consent during *latest consents* listing
+  always changes upon each API or UI call.
 
 `1.1.0 <https://github.com/crim-ca/blockchain/tree/1.1.0>`_ (2022-01-26)
 ---------------------------------------------------------------------------------------------------------------

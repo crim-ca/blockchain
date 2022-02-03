@@ -26,6 +26,14 @@ table td  {
     padding: 0.25em;
 }
 
+col.collapsible {
+    visibility: collapse;
+}
+
+.consents-metadata {
+    vertical-align: top;
+}
+
 .body-menu {
     margin-bottom: 1em;
 }
@@ -59,13 +67,51 @@ table td  {
 
 }
 
+.undefined {
+    color: grey;
+    font-style: italic;
+}
+
 .warning {
     color: #B8860B;
 }
 
+.bool,
+.code,
 .hash,
 .uuid {
-    font-family: "Lucida Console", "Courier New", monospace;
+    font-family: "Lucida Console", monospace;
+}
+
+.bool {
+    color: darkorange;
+    font-weight: bold;
+    text-transform: lowercase;
+}
+
+.capitalize {
+    text-transform: capitalize;
+}
+
+.lowercase {
+    text-transform: lowercase;
+}
+
+.enum {
+    color: darkslateblue;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.wrap {
+    white-space: normal;
+}
+
+.date,
+.datetime {
+    color: blueviolet;
 }
 
 a,

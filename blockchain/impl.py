@@ -161,6 +161,7 @@ class ConsentType(EnumNameHyphenCase):
     CREATED = auto()  # default consent created on first block or until change applied for given action
     CHANGED = auto()  # resolved consent action with existing and explicit definition of active consent
     EXPIRED = auto()  # when last consent was still granted, but is now passed specified expiration datetime
+    UNDEFINED = auto()  # when no consent was define for the corresponding action (ie: created time always changes)
 
 
 class DataType(EnumNameHyphenCase):
@@ -340,7 +341,7 @@ class Consent(WithDatetime):
                  consent: bool,
                  *args: Any,
                  expire: Optional[Union[str, datetime]] = None,
-                 consent_type: Union[str, ConsentType] = ConsentType.CREATED,
+                 consent_type: Union[str, ConsentType] = ConsentType.UNDEFINED,
                  subsystems: Optional[List[SubSystem]] = None,
                  **kwargs: Any,
                  ) -> None:
