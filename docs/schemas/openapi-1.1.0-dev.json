@@ -1120,7 +1120,7 @@
                 "tags": [
                     "UI"
                 ],
-                "summary": "Display shortcuts to other pages.",
+                "summary": "Display Node details, networks nodes and shortcuts to other pages.",
                 "operationId": "shortcut_navigate_ui__get",
                 "responses": {
                     "200": {
@@ -1510,7 +1510,8 @@
                 "enum": [
                     "created",
                     "changed",
-                    "expired"
+                    "expired",
+                    "undefined"
                 ],
                 "description": "An enumeration."
             },
