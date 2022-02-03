@@ -47,17 +47,35 @@ class Base(AttributeDict, abc.ABC):
         _id = items.pop("id", kwargs.pop("id", uuid.uuid4())) or uuid.uuid4()  # enforce generation if None/missing
         kwargs.update(items)
         kwargs.update({"id": uuid.UUID(str(_id))})
-        super(Base, self).__init__(**kwargs)
+        super(Base, self).__init__()
+        for key, val in kwargs.items():
+            self.__setitem__(key, val)
 
     def __str__(self):
         # type: () -> str
         return f"{type(self).__name__} <{self.id}>"
 
+    # default behavior ignores getter property, so enforce it if it exists
+    # (not needed for __getattr__ already handled)
+    def __getitem__(self, item):
+        prop = getattr(self.__class__, item, None)
+        if isinstance(prop, property) and prop.fget is not None:
+            return prop.fget(self)
+        return super(Base, self).__getitem__(item)
+
+    # default behavior ignores setter property, so enforce it if it exists
+    def __setitem__(self, key, value):
+        prop = getattr(self.__class__, key, None)
+        if isinstance(prop, property) and prop.fset is not None:
+            prop.fset(self, value)
+        else:
+            super(Base, self).__setitem__(key, value)
+
+    # default behavior ignores setter property, so enforce it if it exists
     def __setattr__(self, name, value):
         prop = getattr(self.__class__, name, None)
-        # default behavior ignores setter property, so allow it
-        if isinstance(prop, property) and getattr(prop, "fset", None) is not None:
-            self[name] = value
+        if isinstance(prop, property) and prop.fset is not None:
+            prop.fset(self, value)
         else:
             super(Base, self).__setattr__(name, value)
 
@@ -72,13 +90,20 @@ class Base(AttributeDict, abc.ABC):
             return f"{cls.__module__}.{cls.__name__}\n{repr_}"
         return dict.__repr__(self)
 
+    @staticmethod
+    def _json_serialize(value):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return str(value)
+
     # FIXME: remove when integrated (https://github.com/mewwts/addict/pull/139)
     def json(self, force=True) -> JSON:
         """
         JSON representation of the data.
         """
         base = {}
-        for key, value in self.items():
+        for key in self.keys():
+            value = self.__getitem__(key)  # resolve any applicable property
             key = str(key)  # ensure conversion
             if isinstance(value, (type(self), dict)):
                 base[key] = AttributeDict(value).json()
@@ -88,14 +113,14 @@ class Base(AttributeDict, abc.ABC):
                     if isinstance(item, (type(self), dict)) or hasattr(item, "json")
                     else item
                     if isinstance(item, (int, float, bool, str, type(None)))
-                    else str(item) if force else item
+                    else self._json_serialize(item) if force else item
                     for item in value)
             elif isinstance(value, (int, float, bool, str, type(None))):
                 base[key] = value
             elif hasattr(value, "json"):
                 base[key] = value.json() if callable(value.json) else value.json
             else:
-                base[key] = str(value) if force else value
+                base[key] = self._json_serialize(value) if force else value
         return base
 
     def params(self) -> Dict[str, Any]:
@@ -105,19 +130,21 @@ class Base(AttributeDict, abc.ABC):
         return dict(self)
 
 
-class WithDatetime(Base):
+class WithDatetimeCreated(Base):
     def __init__(self, *args, **kwargs):
         # generate or set created datetime
         created = kwargs.pop("created", kwargs.pop("timestamp", None))
         Base.__setattr__(self, "created", created or self.created)
-        super(WithDatetime, self).__init__(*args, **kwargs)
+        super(WithDatetimeCreated, self).__init__(*args, **kwargs)
 
     @property
     def created(self) -> datetime:
         dt = self.get("created")
         if dt is None:
-            dt = datetime.utcnow().isoformat()
+            dt = datetime.utcnow()
             self["created"] = dt
+        if isinstance(dt, str):
+            dt = dt_parser.parse(dt)
         return dt
 
     @created.setter
@@ -125,6 +152,26 @@ class WithDatetime(Base):
         if created is not None and isinstance(created, str):
             created = datetime.fromisoformat(created)
         Base.__setitem__(self, "created", created)
+
+
+class WithDatetimeExpire(Base):
+    @property
+    def expire(self) -> Optional[datetime]:
+        expire = dict.__getitem__(self, "expire")
+        if isinstance(expire, str):
+            return dt_parser.parse(expire)
+        return expire
+
+    @expire.setter
+    def expire(self, expire: Optional[Union[str, datetime]]) -> None:
+        if expire is None:
+            self["expire"] = None
+            return
+        if not isinstance(expire, (str, datetime)):
+            raise TypeError(f"Invalid expire type: {type(expire)!s}")
+        if isinstance(expire, str):
+            expire = dt_parser.parse(expire)
+        self["expire"] = expire
 
 
 class Transaction(Base):
@@ -340,7 +387,7 @@ class SubSystem(Base):
             self["metadata"] = str(meta)
 
 
-class Consent(WithDatetime):
+class Consent(WithDatetimeCreated, WithDatetimeExpire):
     def __init__(self,
                  action: Union[str, ConsentAction],
                  consent: bool,
@@ -370,21 +417,6 @@ class Consent(WithDatetime):
         self["action"] = ConsentAction(action)
 
     @property
-    def expire(self) -> Optional[datetime]:
-        return dict.__getitem__(self, "expire")
-
-    @expire.setter
-    def expire(self, expire: Optional[Union[str, datetime]]) -> None:
-        if expire is None:
-            self["expire"] = None
-            return
-        if not isinstance(expire, (str, datetime)):
-            raise TypeError(f"Invalid expire type: {type(expire)!s}")
-        if isinstance(expire, str):
-            expire = dt_parser.parse(expire)
-        self["expire"] = expire
-
-    @property
     def type(self) -> ConsentType:
         return self["type"]
 
@@ -403,7 +435,7 @@ class Consent(WithDatetime):
         self["subsystems"] = [SubSystem(**dict(sub)) if not isinstance(sub, SubSystem) else sub for sub in subsystems]
 
 
-class ConsentChange(WithDatetime):
+class ConsentChange(WithDatetimeCreated):
     """
     Holds modified consents and generates complete consents history from them.
     """

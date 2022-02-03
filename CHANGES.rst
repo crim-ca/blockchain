@@ -18,6 +18,8 @@ Changes
   always changes upon each API or UI call.
 * Fix potential incomplete save of blockchain following corrupted data in block.
 * Fix block creation from direct dictionary instead of keyword arguments.
+* Fix resolution of class implementations to enforce parsing and validation of properties when available.
+* Fix format of ``created`` and ``expire`` fields in API and for saving data using consistent ISO formatted datetimes.
 
 `1.1.0 <https://github.com/crim-ca/blockchain/tree/1.1.0>`_ (2022-01-26)
 ---------------------------------------------------------------------------------------------------------------
