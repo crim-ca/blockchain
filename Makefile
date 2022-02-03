@@ -240,15 +240,15 @@ print(json.dumps(json.load(open(\"$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG)
 	@mv "$(DOC_TMP_DIR)/$(DOCS_OPENAPI_DEST).json" "$(DOCS_SCHEMA_DIR)/$(DOCS_OPENAPI_DEST).json"
 	@-rm -fr $(DOC_TMP_DIR)
 
-.PHONY: docs-openapi-latest
-docs-openapi-latest:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
+.PHONY: docs-openapi-current
+docs-openapi-current:  ## applies the current version OpenAPI schema as the latest schema reference for Postman
 	@$(MAKE) -C "$(APP_ROOT)" \
 		DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) \
 		DOCS_OPENAPI_DEST=schema \
 		docs-openapi-format
 
 .PHONY: docs-openapi-dev
-docs-openapi-dev:  ## applies the current code OpenAPI schema as the development schema reference for Postman
+docs-openapi-dev: install-pkg  ## applies the current code OpenAPI schema as the development schema reference for Postman
 	@$(MAKE) -C "$(APP_ROOT)" \
 		DOCS_OPENAPI_TAG=dev \
 		DOCS_OPENAPI_DEST=openapi-$(APP_VERSION)-dev \
@@ -263,7 +263,13 @@ docs-openapi-only:
 	@mkdir -p "$(DOCS_SCHEMA_DIR)"
 	@curl --silent -H "Accept: application/json" "http://0.0.0.0:$(APP_PORT)/json" \
 		> "$(DOCS_SCHEMA_DIR)/openapi-$(DOCS_OPENAPI_TAG).json"
-	@$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) docs-openapi-latest
+	@$(MAKE) -C "$(APP_ROOT)" \
+		DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) \
+		DOCS_OPENAPI_DEST=openapi-$(DOCS_OPENAPI_TAG) \
+		docs-openapi-format
+	@$(MAKE) -C "$(APP_ROOT)" \
+		DOCS_OPENAPI_TAG=$(DOCS_OPENAPI_TAG) \
+		docs-openapi-current
 	@$(MAKE) -C "$(APP_ROOT)" stop
 
 .PHONY: docs-openapi
@@ -305,7 +311,7 @@ bump:	## bump version using VERSION specified as user input (make VERSION=<X.Y.Z
 	@-bash -c '$(CONDA_CMD) test -f "$(CONDA_ENV_PATH)/bin/bump2version" || pip install $(PIP_XARGS) bump2version'
 	@-bash -c '$(CONDA_CMD) bump2version $(BUMP_XARGS) --new-version "${VERSION}" patch;'
 	@[ ${BUMP_DRY} -ne 1 ] && ( \
-		$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG="${VERSION}" docs-openapi-only && \
+		$(MAKE) -C "$(APP_ROOT)" DOCS_OPENAPI_TAG="${VERSION}" docs-openapi && \
 		git add "$(DOCS_SCHEMA_DIR)/openapi-${VERSION}.json" "$(DOCS_SCHEMA_DIR)/schema.json" && \
 		git commit --amend --no-edit && \
 		git tag -f "${VERSION}" \
