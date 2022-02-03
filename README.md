@@ -10,6 +10,33 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 
 [version-url]: https://github.com/crim-ca/blockchain/tree/2.0.0
 
+<!-- see 'make docs-toc' -->
+<!-- toc -->
+<!-- tocstop -->
+
+## Blockchain Contents
+
+The blockchains are intended to contain tracking of *Consent* changes and resolution.
+Each blockchain UUID (multiple chains per nodes) represent a potential distinct *user* for management their *Consents*.
+
+Starting with version [2.0.0](https://github.com/crim-ca/blockchain/tree/2.0.0), *Consent Subsystems* metadata can 
+also be stored in the blockchains to better represented the consented data, and maintain references to any applicable
+data provider, data source or other policies using customizable metadata.
+
+Following is a visual representation of such *Consents* using UI endpoints.
+
+![blockchain-consents](./docs/blockchain-consents.png "Initial Consents representation in a Blockchain")
+
+
+Similar details can be retrieved from the API endpoints, as well as further operations on the blockchains 
+and nodes for which process consensus resolution must be executed against in a network of blockchain nodes.
+
+The *Consents* are generated with a set of demonstration *Actions*, which can be extended as needed by modifying the
+`ConsentsAction` enumeration.
+
+Please refer to [Updating Consents](docs/consents.md#updating-contents) section for more details regarding
+applicable consents metadata that can be pushed to a blockchain.
+
 ## Installation
 
 1. Make sure [Python 3.6+](https://www.python.org/downloads/) is installed. 
@@ -106,23 +133,3 @@ Following are the reference resources and source code employed to start developm
 
 - [Original code: dvf/blockchain](https://github.com/dvf/blockchain)
 - [Building a Blockchain blogpost](https://medium.com/p/117428612f46)
-
-
-## Blockchain Contents
-
-The blockchains are intended to contain tracking of *Consent* changes and resolution. 
-Each blockchain UUID (multiple chains per nodes) represent a potential *user* for management their *Consents*.
-
-Following is a visual representation of such *Consents* using UI endpoints.
-
-![blockchain-consents](./docs/blockchain-consents.png "Initial Consents representation in a Blockchain")
-
-
-Similar details can be retrieved from the API endpoints, as well as further operations on the blockchains and nodes
-their should process consensus resolution against.
-
-The *Consents* are generated with a set of demonstration *Actions*, which can be extended as needed by modifying the
-`ConsentsAction` enumeration.
-
-Please refer to [Updating Consents](docs/consents.md#updating-contents) section for more details regarding
-applicable consents metadata to be pushed to the blockchain. 
