@@ -26,8 +26,18 @@ table td  {
     padding: 0.25em;
 }
 
-col.collapsible {
+/*
+    colgroup with colspan selection doesn't behave correctly on Chrome
+    behaves correctly in Firefox, but collapse visibility doesn't work perfectly
+    workaround with direct class references to disable relevant items
+*/
+.collapsed {
+    /* fixes most cases */
     visibility: collapse;
+    border: 0;
+
+    /* firefox also need this to remove some left over borders */
+    border-bottom: 0 solid;
 }
 
 .consents-metadata {
@@ -64,7 +74,21 @@ col.collapsible {
 }
 
 .consents-status {
+}
 
+.consents-metadata-header {
+    display: flex;
+    flex-wrap: nowrap;
+}
+
+.consents-metadata-button {
+    margin-left: auto;
+}
+
+.subsystem-field {
+}
+
+.subsystem-display-button {
 }
 
 .undefined {
@@ -137,7 +161,8 @@ a:visited {
 .version-box {
     position: absolute;
     right: 0;
-    bottom: 0;
+
+    /* bottom: 0; */  /* breaks in Chrome, box overlaps other elements in 'visible page' bottom */
 }
 
 .version-box > div {
