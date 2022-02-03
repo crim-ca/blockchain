@@ -221,11 +221,13 @@ $(DOCS_LOCATION):
 _force_docs:
 	@-rm -f "$(DOCS_LOCATION)"
 
-DOCS := openapi
+DOCS := openapi toc
 DOCS := $(addprefix docs-, $(DOCS))
 DOCS_BUILD := $(DOCS_LOCATION) _force_docs
 DOCS_OPENAPI_TAG ?= $(APP_VERSION)
 DOCS_OPENAPI_DEST ?= schema
+
+$(DOCS): docs-%: install-dev docs-%-only
 
 # use tmp dir to avoid losing the original schema if formatted destination is the source file and error occurs
 .PHONY: docs-openapi-format
@@ -274,6 +276,14 @@ docs-openapi-only:
 
 .PHONY: docs-openapi
 docs-openapi: install-pkg docs-openapi-only
+
+.PHONY: docs-toc-only
+docs-toc-only:
+	@-echo "Updating markdown TOC in README..."
+	@npx markdown-toc -i "$(APP_ROOT)/README.md"
+
+.PHONY: docs-toc
+docs-toc: install-npm-markdown-doc docs-toc-only  ## generate markdown TOC automatically
 
 .PHONY: docs-only
 docs-only: $(addsuffix -only, $(DOCS)) $(DOCS_BUILD)	## generate documentation without requirements installation or cleanup
@@ -357,6 +367,28 @@ install-dev: conda-env	## install package requirements for development and testi
 	  echo "Successfully installed dev requirements." \
 	 ) || echo "No dev requirements to install."
 
+# install locally to ensure they can be found by config extending them
+.PHONY: install-npm
+install-npm:    		## install npm package manager if it cannot be found
+	@[ -f "$(shell which npm)" ] || ( \
+		echo "Binary package manager npm not found. Attempting to install it."; \
+		apt-get install npm \
+	)
+
+.PHONY: install-npm-stylelint
+install-npm-stylelint: install-npm 	## install stylelint checker using npm
+	@[ `npm ls -only dev -depth 0 2>/dev/null | grep -V "UNMET" | grep stylelint-config-standard | wc -l` = 1 ] || ( \
+		echo "Install required libraries for style checks." && \
+		npm install stylelint@13.13.1 stylelint-config-standard@22.0.0 --save-dev \
+	)
+
+.PHONY: install-npm-markdown-doc
+install-npm-markdown-doc: install-npm 	## install markdown-doc TOC generator using npm
+	@[ `npm ls -only dev -depth 0 2>/dev/null | grep -V "UNMET" | grep markdown-doc | wc -l` = 1 ] || ( \
+		echo "Install required libraries for docs generation." && \
+		npm install markdown-doc --save-dev \
+	)
+
 ## --- Launchers targets --- ##
 
 .PHONY: start
@@ -407,7 +439,7 @@ mkdir-reports:
 	@mkdir -p "$(REPORTS_DIR)"
 
 # autogen check variants with pre-install of dependencies using the '-only' target references
-CHECKS := pep8 lint security doc8 links imports
+CHECKS := pep8 lint security doc8 links imports css
 CHECKS := $(addprefix check-, $(CHECKS))
 
 $(CHECKS): check-%: install-dev check-%-only
@@ -492,6 +524,14 @@ check-imports-only: mkdir-reports	## run imports code checks
 	@bash -c '$(CONDA_CMD) \
 	 	isort --check-only --diff --recursive $(APP_ROOT) \
 		1> >(tee "$(REPORTS_DIR)/check-imports.txt")'
+
+.PHONY: check-css-only
+check-css-only: mkdir-reports install-npm
+	@echo "Running CSS style checks..."
+	@npx stylelint \
+		--config "$(APP_ROOT)/.stylelintrc.json" \
+		--output-file "$(REPORTS_DIR)/fixed-css.txt" \
+		"$(APP_ROOT)/**/*.css"
 
 # autogen fix variants with pre-install of dependencies using the '-only' target references
 FIXES := imports lint docf
