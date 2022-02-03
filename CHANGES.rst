@@ -11,6 +11,8 @@ Changes
   consents are being applied.
 * Add more extensive documentation about content metadata when ``subsystems`` are involved.
 * Add more CSS definitions for different field types allowing better interpretation of consents metadata at a glance.
+* Replace ``changes`` field returned by API ``GET /chains/{id}/consents`` request from generic strings to detailed
+  JSON representation of consent history changes. Old string representation is returned in new ``summary`` field.
 * Improve application log message format and align ``uvicorn`` logging details with it.
 * Fix import error when computing block hash.
 * Fix default modification ``ContentType`` from ``CREATED`` to new ``UNDEFINED``.

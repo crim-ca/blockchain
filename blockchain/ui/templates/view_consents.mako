@@ -23,9 +23,9 @@
                 <tr><th colspan="2">Statuses</th></tr>
             </thead>
             <tbody>
-                <tr><td>Updated:</td>   <td>${utils.get_styled_value(updated, "updated-datetime")}</td></tr>
-                <tr><td>Outdated:</td>  <td>${utils.get_styled_value(outdated, "outdated-status")}</td></tr>
-                <tr><td>Verified:</td>  <td>${utils.get_styled_value(verified, "verified-status")}</td></tr>
+                <tr><td>Updated:</td>   <td>${utils.get_styled_value(updated, "datetime")}</td></tr>
+                <tr><td>Outdated:</td>  <td>${utils.get_styled_value(outdated, "bool")}</td></tr>
+                <tr><td>Verified:</td>  <td>${utils.get_styled_value(verified, "bool")}</td></tr>
             </tbody>
         </table>
     </div>
@@ -103,7 +103,7 @@
             <tbody>
                 %for change in changes:
                     <tr>
-                        <td>${change}</td>
+                        <td>${utils.get_styled_change(change)}</td>
                     </tr>
                 %endfor
             </tbody>

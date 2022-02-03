@@ -104,14 +104,14 @@ class Base(AttributeDict, abc.ABC):
             value = self.__getitem__(key)  # resolve any applicable property
             key = str(key)  # ensure conversion
             if isinstance(value, (type(self), dict)):
-                base[key] = AttributeDict(value).json()
+                base[key] = Base(value).json()
             elif isinstance(value, (list, tuple)):
                 base[key] = list(
-                    (AttributeDict(item).json() if callable(item.json) else AttributeDict(item).json)
+                    (Base(item).json(force) if callable(item.json) else Base(item).json)
                     if isinstance(item, (type(self), dict)) or hasattr(item, "json")
                     else item
                     if isinstance(item, (int, float, bool, str, type(None)))
-                    else self._json_serialize(item) if force else item
+                    else (self._json_serialize(item) if force else item)
                     for item in value)
             elif isinstance(value, (int, float, bool, str, type(None))):
                 base[key] = value
@@ -385,13 +385,40 @@ class SubSystem(WithID):
     @metadata.setter
     def metadata(self, meta: Optional[Union[Mapping, str]]):
         if isinstance(meta, str) or meta is None:
-            self["metadata"] = meta
+            dict.__setitem__(self, "metadata", meta)
             return
         try:
             json.dumps(meta)
-            self["metadata"] = meta
+            dict.__setitem__(self, "metadata", meta)
         except (TypeError, ValueError):
-            self["metadata"] = str(meta)
+            dict.__setitem__(self, "metadata", str(meta))
+
+
+class ChangeHistoryStatus(EnumNameHyphenCase):
+    INITIAL = auto()
+    CREATED = auto()
+    UPDATED = auto()
+
+
+class ChangeHistoryItem(WithDatetimeCreated, WithDatetimeExpire):
+    def __init__(self,
+                 status: ChangeHistoryStatus,
+                 detail: str,   # description of the change (consent repr itself or more verbose info if no consent)
+                 action: Optional[ConsentAction] = None,  # allowed none for initial (no consents)
+                 created: Optional[Union[str, datetime]] = None,
+                 expired: Optional[Union[str, datetime]] = None,
+                 consent: Optional[Union[bool, int]] = None,  # int allowed since '1' used by 'summary' representation
+                 ) -> None:
+        super().__init__(created=created, expire=expired)
+        Base.__setitem__(self, "status", status)
+        Base.__setitem__(self, "detail", detail)
+        Base.__setitem__(self, "action", action)
+        Base.__setitem__(self, "consent", bool(consent))
+
+    def json(self, force=True) -> JSON:
+        data = super().json(force)
+        data["expired"] = data.pop("expire")
+        return data
 
 
 class Consent(WithDatetimeCreated, WithDatetimeExpire):
@@ -412,8 +439,24 @@ class Consent(WithDatetimeCreated, WithDatetimeExpire):
         super(Consent, self).__init__(*args, **kwargs)
 
     def __repr__(self):
+        """
+        Obtain the consent string representation.
+        """
         expire = "forever" if self.expire is None else f"until [{self.expire}]"
         return f"{self.action!s} [consent:{int(self.consent)}] from [{self.created}] {expire}"
+
+    def change(self, status: ChangeHistoryStatus) -> ChangeHistoryItem:
+        """
+        Generate a JSON-like representation corresponding to the string representation with change status.
+        """
+        return ChangeHistoryItem(
+            status=status,
+            action=self.action,
+            consent=self.consent,
+            created=self.created,
+            expired=self.expire,
+            detail=f"{self!r}",
+        )
 
     @property
     def action(self) -> ConsentAction:
@@ -498,19 +541,20 @@ class ConsentChange(WithDatetimeCreated):
         return resolved
 
     @classmethod
-    def history(cls, chain: "Blockchain") -> List[str]:
+    def history(cls, chain: "Blockchain") -> Tuple[List[str], List[ChangeHistoryItem]]:
         """
         Compute the change history of consents across a blockchain.
         """
 
         # speed up skipping pre-computed without changes
-        changes = chain.states.consent_change_history  # type: List[str]
+        summary = chain.states.consent_change_summary  # type: List[str]
+        changes = chain.states.consent_change_history  # type: List[ChangeHistoryItem]
         last_id = chain.states.consent_change_last_id  # type: Optional[uuid.UUID]
         updated = chain.states.consent_change_updated  # type: Dict[ConsentAction, Consent]
         updated = dict(updated)  # copy to allow setting frozen dict when resolving actions
         if changes and last_id and last_id == chain.last_block.id:
             LOGGER.debug("Using precomputed consent change history for blockchain [%s]", chain.id)
-            return changes
+            return summary, changes
 
         LOGGER.debug("Computing consent change history for blockchain [%s]", chain.id)
         prev_block = None  # type: Optional[Block]
@@ -528,11 +572,16 @@ class ConsentChange(WithDatetimeCreated):
             # first block always creates initial consents
             if prev_block is None:
                 for consent in block.consents:
-                    changes.append(f"[created] => {consent!r}")
+                    status = ChangeHistoryStatus.CREATED
+                    summary.append(f"[{status}] => {consent!r}")
+                    changes.append(consent.change(status))
                     consent.type = ConsentType.CREATED
                     updated[consent.action] = consent
                 if not changes:
-                    changes.append("[initial] => (no consents)")
+                    status = ChangeHistoryStatus.INITIAL
+                    detail = "no consents"
+                    summary.append(f"[{status}] => ({detail})")
+                    changes.append(ChangeHistoryItem(status=status, detail=detail))
             # check following block for change of consents
             else:
                 for consent in block.consents:
@@ -693,7 +742,8 @@ class Blockchain(WithID):
         ]
         self.setdefault("updated", datetime.utcnow())
         self.setdefault("states", AttributeDict({
-            "consent_change_history": [],       # type: List[str]
+            "consent_change_summary": [],       # type: List[str]
+            "consent_change_history": [],       # type: List[ChangeHistoryItem]
             "consent_change_updated": {},       # type: Dict[ConsentAction, Consent]
             "consent_change_last_id": None,     # type: Optional[uuid.UUID]
         }))

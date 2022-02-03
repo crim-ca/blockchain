@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, UUID4
 
 from blockchain.api import schemas
-from blockchain.impl import AttributeDict, Block, Blockchain, ConsentChange, Node
+from blockchain.impl import Base, Block, Blockchain, ConsentChange, Node
 from blockchain.typedefs import AnyRef, AnyUUID
 from blockchain.utils import get_logger, parse_multipart_consents
 
@@ -177,7 +177,7 @@ async def view_chain(request: Request, chain_id: UUID4):
 async def list_blocks(request: Request, chain_id: UUID4, detail: bool = schemas.DetailQuery(False)):
     chain = get_chain(request.app, chain_id)
     blocks = list(chain.blocks) if detail else [block.id for block in chain.blocks]
-    data = AttributeDict({"blocks": blocks, "length": len(blocks)})
+    data = Base({"blocks": blocks, "length": len(blocks)})
     return data
 
 
@@ -195,7 +195,7 @@ async def list_blocks(request: Request, chain_id: UUID4, detail: bool = schemas.
 async def chain_block(request: Request, chain_id: UUID4, block_ref: AnyRef = schemas.BlockPathRef(...)):
     chain = get_chain(request.app, chain_id)
     block = get_block(request.app, block_ref, chain)
-    data = AttributeDict({
+    data = Base({
         "message": "Listing of block details successful.",
         "chain": chain.id,
         "block": block
@@ -233,7 +233,7 @@ async def mine(request: Request, chain_id: UUID4):
     block = blockchain.new_block(proof, previous_hash)
     request.app.db.save_chain(blockchain)
 
-    data = AttributeDict({
+    data = Base({
         "message": "New block forged.",
         "index": block["index"],
         "transactions": block["transactions"],
@@ -272,7 +272,7 @@ async def new_transaction(request: Request, values: schemas.TransactionSchema, c
 )
 async def view_consents(request: Request, chain_id: UUID4):
     chain = get_chain(request.app, chain_id)
-    history = ConsentChange.history(chain)
+    summary, history = ConsentChange.history(chain)
     consents = [consent.json() for consent in ConsentChange.latest(chain)]
     outdated = chain.verify_outdated(request.app.nodes)
     message = "Consents history resolved and validated against all other nodes."
@@ -280,12 +280,13 @@ async def view_consents(request: Request, chain_id: UUID4):
         message = "Consents history resolved but could not be validated against other nodes."
     elif outdated:
         message = "Consents history resolved but is missing updates from other nodes."
-    data = AttributeDict({
+    data = Base({
         "message": message,
-        "updated": chain.last_block.created,
+        "updated": chain.last_block.created.isoformat(),
         "outdated": outdated if isinstance(outdated, bool) else False,
         "verified": outdated is not None,
-        "changes": history,
+        "summary": summary,
+        "changes": [change.json() for change in history],
         "consents": consents,
     })
     return data
@@ -377,7 +378,7 @@ async def update_consent(request: Request, chain_id: UUID4):  # , body: schemas.
     block = blockchain.new_block(proof, previous_hash)
     request.app.db.save_chain(blockchain)
 
-    data = AttributeDict({
+    data = Base({
         "message": "New block forged.",
         "index": block["index"],
         "transactions": block["transactions"],
@@ -427,7 +428,7 @@ def consensus(request: Request, chain_id: UUID4):
         message = "Blockchain was replaced with resolved conflicts."
     else:
         message = "Blockchain is authoritative."
-    data = AttributeDict({
+    data = Base({
         "message": message,
         "updated": blockchain.updated,
         "resolved": generated or replaced,

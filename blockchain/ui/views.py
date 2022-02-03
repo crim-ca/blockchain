@@ -27,7 +27,8 @@ def add_metadata(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
     data["node_id"] = request.app.node.id
     data["node_url"] = request.app.node.url
     data["version"] = __meta__["version"]
-    # generic styles to applied on detected fields using 'get_styled_value' (see 'utils.mako')
+    # generic CSS to applied on detected fields using 'get_styled_value' (see 'utils.mako')
+    # right side should be one of many CSS classes defined in 'styles.css'
     data["styles"] = {
         "action": "enum code nowrap",
         "type": "enum code",
@@ -37,9 +38,20 @@ def add_metadata(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
         "data_type": "enum",
         "data_provider": "",
         "data_hash": "hash",
-        "updated-datetime": "date",
-        "verified-status": "bool",
-        "outdated-status": "bool",
+        "bool": "bool",
+        "date": "date",
+        "datetime": "datetime",
+        "code": "code",
+        "enum": "enum",
+        "hash": "hash",
+        "uuid": "uuid",
+        "undefined": "undefined",
+        "wrap": "wrap",
+        "nowrap": "nowrap",
+        "lowercase": "lowercase",
+        "warning": "warning",
+        "label": "label",
+        "plain": "",
     }
     return data
 

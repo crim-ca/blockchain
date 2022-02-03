@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 from fastapi import Path, Query
 from pydantic import AnyUrl, BaseModel, Field, PositiveInt, UUID4, constr
 
-from blockchain.impl import ConsentAction, ConsentType, DataType
+from blockchain.impl import ChangeHistoryStatus, ConsentAction, ConsentType, DataType
 from blockchain.typedefs import Mapping
 
 
@@ -164,12 +164,25 @@ class ChainConsentsDetailedResponse(BaseModel):
     length: PositiveInt
 
 
+class Change(BaseModel):
+    class Config:
+        extra = "forbid"
+
+    status: ChangeHistoryStatus = Field(description="Modification type that introduced consents change in the history.")
+    detail: str = Field(description="Description of the consent change in the history.")
+    action: Optional[ConsentAction] = Field(description="Applicable action that caused consent change in the history.")
+    consent: Optional[bool] = Field(description="Allowed or revoked consent action that cause change in the history.")
+    created: Optional[datetime] = Field(description="Creation datetime that caused consent change in the history.")
+    expired: Optional[datetime] = Field(description="Expiration datetime that caused consent change in the history.")
+
+
 class ListConsentsResponse(BaseModel):
     message: str = Field(description="Result of consents represented in the blockchain.")
     updated: datetime = Field(description="Last moment the chain was updated by consensus resolution.")
     outdated: bool = Field(description="Status indicating if a consent change was detected across the node network.")
     verified: bool = Field(description="Status indicating if latest consents were validated against other nodes.")
-    changes: List[str] = Field(description="Summary of all consent changes history applied over the chain.")
+    summary: List[str] = Field(description="Summary of all consent changes history applied over the chain.")
+    changes: List[Change] = Field(description="Detailed consent change history applied over the chain.")
     consents: List[ConsentSchema] = Field(description="Latest resolved consents.")
 
 
