@@ -2,25 +2,19 @@
 <%include file="node_info.mako"/>
 <%include file="chain_info.mako"/>
 <%namespace name="utils" file="utils.mako"/>
-
 <script>
-    function hideColumn(columns) {
-            columns.forEach(function(num, i) {
-                columns[i] = "#col_" + columns[i];
-            });
-            let selectors = columns.join(", ");
-        // reset previously hidden
-            let hidden = document.querySelectorAll(".collapsed-col");
-            hidden.forEach(function(el) {
-            el.classList.remove("collapsed-col");
-        });
-        // hide cells by class
-            let cells = document.querySelectorAll(selectors);
-            cells.forEach(function(item, i) {
-            item.classList.add("collapsed-col");
-        });
-    }
+    <%include file="utils.js"/>
 </script>
+
+
+<%def name="render_subsystem(subsystem)">
+    %for field in subsystem_fields:
+        <td class="subsystem-field collapsible">
+            ${utils.get_styled_value(subsystem.get(field), field)}
+        </td>
+    %endfor
+</%def>
+
 
 <div class="consents">
     <div class="consents-status">
@@ -37,14 +31,26 @@
     </div>
     <div class="consents-latest">
         <table>
-            <col span="${len(consent_fields)}" id="col-consent-meta">
-            <col span="${len(subsystem_fields)}" id="col-subsystems">
+            <col span="${len(consent_fields)}">
+            <col span="${len(subsystem_fields)}" class="collapsible">
             <thead>
                 <tr>
                     <th colspan="${len(consent_fields)}">
-                        Consents Metadata
+                        <div class="consents-metadata-header">
+                            <div>
+                                Consents Metadata
+                            </div>
+                            <div class="consents-metadata-button">
+                                <input
+                                    type="button"
+                                    class="subsystem-display-button"
+                                    value="Hide Subsystems Metadata <"
+                                    onclick="toggleButtonColumns(this);"
+                                />
+                            </div>
+                        </div>
                     </th>
-                    <th colspan="${len(subsystem_fields)}">
+                    <th colspan="${len(subsystem_fields)}" class="collapsible">
                         Subsystems Metadata
                     </th>
                 </tr>
@@ -53,7 +59,7 @@
                         <th>${consent_fields[field]}</th>
                     %endfor
                     %for field in subsystem_fields:
-                        <th>${subsystem_fields[field]}</th>
+                        <th class="collapsible">${subsystem_fields[field]}</th>
                     %endfor
                 </tr>
             </thead>
@@ -73,7 +79,7 @@
                     %if len(subsystems) > 0:
                         ${render_subsystem(subsystems[0])}
                     %else:
-                        <td colspan="${colspan}"> </td>
+                        <td colspan="${colspan}" class="collapsible">${utils.get_styled_value(None)}</td>
                     %endif
                 </tr>
                 %if len(subsystems) > 1:
@@ -104,11 +110,3 @@
         </table>
     </div>
 </div>
-
-<%def name="render_subsystem(subsystem)">
-    <td>
-        %for field in subsystem_fields:
-            ${utils.get_styled_value(subsystem.get(field), field)}
-        %endfor
-    </td>
-</%def>
