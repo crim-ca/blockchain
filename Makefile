@@ -278,6 +278,7 @@ docs-openapi-only:
 docs-openapi: install-pkg docs-openapi-only
 
 .PHONY: docs-toc-only
+docs-toc-only:
 	@-echo "Updating markdown TOC in README..."
 	@npx markdown-toc -i "$(APP_ROOT)/README.md"
 
