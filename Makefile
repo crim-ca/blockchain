@@ -360,6 +360,7 @@ start: install start-app  ## start application instance with gunicorn after inst
 .PHONY: start-app
 start-app: stop		## start application instance with single worker
 	@echo "Starting $(APP_NAME)..."
+	@mkdir -p "$(APP_DB_DIR)"
 	@test -d "$(APP_DB_DIR)" || '$(CONDA_CMD) python "$(APP_ROOT)/blockchain/app.py --new --db "$(APP_DB_DIR)"'
 	@bash -c '$(CONDA_CMD) \
 		python "$(APP_ROOT)/blockchain/app.py" \
