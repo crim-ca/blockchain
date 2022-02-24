@@ -56,10 +56,10 @@
                 </tr>
                 <tr>
                     %for field in consent_fields:
-                        <th>${consent_fields[field]}</th>
+                        <th class="${utils.get_style('th.' + field)}">${consent_fields[field]}</th>
                     %endfor
                     %for field in subsystem_fields:
-                        <th class="collapsible">${subsystem_fields[field]}</th>
+                        <th class="${utils.get_style('th.' + field)} collapsible">${subsystem_fields[field]}</th>
                     %endfor
                 </tr>
             </thead>

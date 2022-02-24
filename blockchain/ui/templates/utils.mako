@@ -1,3 +1,9 @@
+<%def name="get_style(field)">
+    %if field in styles:
+        ${styles[field]}
+    %endif
+</%def>
+
 <%def name="get_styled_value(value, field=None)">
     %if value == "None" or value is None or str(value).lower() == "undefined":
         <span class="undefined">undefined</span>

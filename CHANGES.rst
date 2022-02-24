@@ -7,7 +7,7 @@ Changes
 `Unreleased <https://github.com/crim-ca/blockchain/tree/master>`_ (latest)
 ---------------------------------------------------------------------------------------------------------------
 
-* Nothing yet.
+* Limit width of the ``subsystems`` data `Hash` field in UI `Consents` page to avoid getting too wide table display.
 
 `2.0.0 <https://github.com/crim-ca/blockchain/tree/2.0.0>`_ (2022-02-03)
 ---------------------------------------------------------------------------------------------------------------

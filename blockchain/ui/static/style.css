@@ -113,6 +113,10 @@ table td  {
     font-family: "Lucida Console", monospace;
 }
 
+.hash-width {
+    width: 10em;  /* limit width of column to display hash */
+}
+
 .bool {
     color: darkorange;
     font-weight: bold;
@@ -137,6 +141,10 @@ table td  {
 
 .wrap {
     white-space: normal;
+}
+
+.break {
+    word-break: break-all;
 }
 
 .date,
