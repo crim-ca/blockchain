@@ -6,10 +6,10 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 > Évaluer l’utilisation de la technologie blockchain pour garantir l’intégrité et la traçabilité des données privées.
 
 
-[![version badge](https://img.shields.io/badge/latest%20version-2.0.0-blue)][version-url] 
+[![version badge](https://img.shields.io/badge/latest%20version-2.0.1-blue)][version-url] 
 [![MIT][mit-license-shield]][license-file]
 
-[version-url]: https://github.com/crim-ca/blockchain/tree/2.0.0 
+[version-url]: https://github.com/crim-ca/blockchain/tree/2.0.1 
 
 **Table of Contents**
 
@@ -31,7 +31,7 @@ Confluence Page: [MODL - EvalBlockchain](https://www.crim.ca/confluence/display/
 The blockchains are intended to contain tracking of *Consent* changes and resolution.
 Each blockchain UUID (multiple chains per nodes) represent a potential distinct *user* for management their *Consents*.
 
-Starting with version [2.0.0](https://github.com/crim-ca/blockchain/tree/2.0.0), *Consent Subsystems* metadata can 
+Starting with version [2.0.1](https://github.com/crim-ca/blockchain/tree/2.0.1), *Consent Subsystems* metadata can 
 also be stored in the blockchains to better represented the consented data, and maintain references to any applicable
 data provider, data source or other policies using customizable metadata.
 
@@ -118,21 +118,21 @@ Follow the instructions below to create a local Docker container:
 2. Build the docker container
 
 ```shell
-docker build -t blockchain:2.0.0 .
+docker build -t blockchain:2.0.1 .
 ```
 
 3. Run the container
 
 ```shell
-docker run --rm -p 80:5000 blockchain:2.0.0 <blockchain-parameters>
+docker run --rm -p 80:5000 blockchain:2.0.1 <blockchain-parameters>
 ```
 
 4. To add more instances, vary the public port number before the colon:
 
 ```shell
-docker run --rm -p "81:5000" blockchain:2.0.0 <blockchain-parameters>
-docker run --rm -p "82:5000" blockchain:2.0.0 <blockchain-parameters>
-docker run --rm -p "83:5000" blockchain:2.0.0 <blockchain-parameters>
+docker run --rm -p "81:5000" blockchain:2.0.1 <blockchain-parameters>
+docker run --rm -p "82:5000" blockchain:2.0.1 <blockchain-parameters>
+docker run --rm -p "83:5000" blockchain:2.0.1 <blockchain-parameters>
 ```
 
 ## Citation
@@ -154,7 +154,7 @@ Versions [1.1.0](https://github.com/crim-ca/blockchain/tree/1.1.0) and prior pro
 }
 ```
 
-Version [2.0.0](https://github.com/crim-ca/blockchain/tree/2.0.0) and any following minor releases correspond 
+Version [2.0.1](https://github.com/crim-ca/blockchain/tree/2.0.1) and any following minor releases correspond 
 to the extension of the previous work with *Consents Subsystems*. This is associated with the following publication.
 
 ![contents-shield](https://img.shields.io/badge/contents-coming%20soon-yellow)

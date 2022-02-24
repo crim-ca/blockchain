@@ -85,7 +85,7 @@ for req in ["", "dev", "docs", "test"]:
 setup(
     # -- meta information --------------------------------------------------
     name=PACKAGE_NAME,
-    version="2.0.0",
+    version="2.0.1",
     description=DESCRIPTION,
     long_description=README,
     long_description_content_type=README_TYPE,
