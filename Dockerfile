@@ -1,4 +1,4 @@
-FROM python:3.9-slim as BUILDER
+FROM python:3.12.0b1-slim as BUILDER
 LABEL description.short="User-Data Consents Management Blockchain"
 LABEL description.long="User consents management using Blockchain technology to guarantee integrity and traceability of private data."
 LABEL maintainer="Francis Charette-Migneault <francis.charette-migneault@crim.ca>"
@@ -16,7 +16,7 @@ RUN apt-get update  \
     && pip install --no-cache-dir --upgrade -r /app/requirements.txt \
     && rm -f /app/requirements.txt
 
-FROM python:3.9-slim
+FROM python:3.12.0b1-slim
 COPY --from=BUILDER /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 COPY --from=BUILDER /app/blockchain /app/blockchain
 
